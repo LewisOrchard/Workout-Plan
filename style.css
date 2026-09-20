@@ -229,3 +229,84 @@ input:focus, select:focus {
   text-align: center;
   padding: 24px 0;
 }
+
+.day-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.day-tab {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.day-tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-item {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-item.done {
+  border-color: #3a5f45;
+}
+
+.plan-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-item-name {
+  font-weight: 600;
+}
+
+.plan-item-target {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.plan-item-cue {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.plan-item-done-info {
+  font-size: 0.78rem;
+  color: #7fbf94;
+  margin-top: 2px;
+}
+
+.plan-log-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}

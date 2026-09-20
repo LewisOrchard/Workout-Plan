@@ -17,6 +17,11 @@ let entries = loadEntries();
 let editingId = null;
 let filterText = "";
 
+const PLAN_DAY_KEY = "workout-log-selected-day";
+const planDays = Object.keys(WORKOUT_PLAN);
+let selectedDay = localStorage.getItem(PLAN_DAY_KEY) || planDays[0];
+if (!planDays.includes(selectedDay)) selectedDay = planDays[0];
+
 const logForm = document.getElementById("logForm");
 const exerciseInput = document.getElementById("exerciseInput");
 const setsInput = document.getElementById("setsInput");
@@ -31,6 +36,8 @@ const historyList = document.getElementById("historyList");
 const emptyState = document.getElementById("emptyState");
 const filterInput = document.getElementById("filterInput");
 const submitBtn = logForm.querySelector(".primary-btn");
+const dayTabs = document.getElementById("dayTabs");
+const planList = document.getElementById("planList");
 
 function todayISO() {
   const d = new Date();
@@ -182,6 +189,107 @@ function renderEntry(entry) {
   return el;
 }
 
+function parseRepsLow(repsStr) {
+  const match = String(repsStr).match(/\d+/);
+  return match ? Number(match[0]) : 10;
+}
+
+function todaysEntryFor(exerciseName) {
+  const today = todayISO();
+  const matches = entries
+    .filter((e) => e.date === today && e.exercise.toLowerCase() === exerciseName.toLowerCase())
+    .sort((a, b) => b.createdAt - a.createdAt);
+  return matches[0] || null;
+}
+
+function renderDayTabs() {
+  dayTabs.innerHTML = "";
+  planDays.forEach((day) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "day-tab" + (day === selectedDay ? " active" : "");
+    btn.textContent = day;
+    btn.addEventListener("click", () => {
+      selectedDay = day;
+      localStorage.setItem(PLAN_DAY_KEY, day);
+      renderDayTabs();
+      renderPlanList();
+    });
+    dayTabs.appendChild(btn);
+  });
+}
+
+function renderPlanList() {
+  planList.innerHTML = "";
+  const exercises = WORKOUT_PLAN[selectedDay] || [];
+
+  exercises.forEach((planEx) => {
+    const done = todaysEntryFor(planEx.name);
+
+    const item = document.createElement("div");
+    item.className = "plan-item" + (done ? " done" : "");
+
+    const main = document.createElement("div");
+    main.className = "plan-item-main";
+
+    const name = document.createElement("div");
+    name.className = "plan-item-name";
+    name.textContent = planEx.name;
+    main.appendChild(name);
+
+    const target = document.createElement("div");
+    target.className = "plan-item-target";
+    target.textContent = `Target: ${planEx.sets} sets x ${planEx.reps} reps`;
+    main.appendChild(target);
+
+    if (planEx.cue) {
+      const cue = document.createElement("div");
+      cue.className = "plan-item-cue";
+      cue.textContent = planEx.cue;
+      main.appendChild(cue);
+    }
+
+    if (done) {
+      const doneInfo = document.createElement("div");
+      doneInfo.className = "plan-item-done-info";
+      const weightStr = done.weight ? `${done.weight}${done.unit}` : "bodyweight";
+      doneInfo.textContent = `Logged today: ${done.sets}x${done.reps} @ ${weightStr}`;
+      main.appendChild(doneInfo);
+    }
+
+    item.appendChild(main);
+
+    const logBtn = document.createElement("button");
+    logBtn.type = "button";
+    logBtn.className = "plan-log-btn";
+    logBtn.textContent = done ? "Log again" : "Log";
+    logBtn.addEventListener("click", () => quickFillFromPlan(planEx));
+    item.appendChild(logBtn);
+
+    planList.appendChild(item);
+  });
+}
+
+function quickFillFromPlan(planEx) {
+  editingId = null;
+  submitBtn.textContent = "Add entry";
+  exerciseInput.value = planEx.name;
+  setsInput.value = planEx.sets;
+  repsInput.value = parseRepsLow(planEx.reps);
+  dateInput.value = todayISO();
+  notesInput.value = "";
+
+  const last = entries
+    .filter((e) => e.exercise.toLowerCase() === planEx.name.toLowerCase())
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)[0];
+  weightInput.value = last ? last.weight || "" : "";
+  if (last) unitInput.value = last.unit;
+
+  updateLastEntryHint();
+  document.getElementById("logSection").scrollIntoView({ behavior: "smooth" });
+  weightInput.focus();
+}
+
 function startEdit(id) {
   const entry = entries.find((e) => e.id === id);
   if (!entry) return;
@@ -205,6 +313,7 @@ function deleteEntry(id) {
   if (editingId === id) resetForm();
   renderExerciseDatalist();
   renderHistory();
+  renderPlanList();
   updateLastEntryHint();
 }
 
@@ -246,6 +355,7 @@ logForm.addEventListener("submit", (ev) => {
   resetForm();
   renderExerciseDatalist();
   renderHistory();
+  renderPlanList();
 });
 
 exerciseInput.addEventListener("input", updateLastEntryHint);
@@ -294,6 +404,7 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
     saveEntries(entries);
     renderExerciseDatalist();
     renderHistory();
+    renderPlanList();
     alert(`Imported ${added} new entr${added === 1 ? "y" : "ies"}.`);
   } catch (err) {
     alert("Could not import file: " + err.message);
@@ -305,3 +416,5 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
 dateInput.value = todayISO();
 renderExerciseDatalist();
 renderHistory();
+renderDayTabs();
+renderPlanList();
