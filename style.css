@@ -20,6 +20,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html, body {
   height: 100%;
 }
@@ -383,6 +387,91 @@ input:focus, select:focus {
 
 .plan-log-btn:hover {
   background: var(--gold-bright);
+}
+
+.auth-overlay {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.auth-card .brand-mark {
+  margin-bottom: 4px;
+}
+
+.auth-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.auth-copy {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.auth-copy code {
+  color: var(--gold-bright);
+  font-size: 0.82em;
+}
+
+.auth-card form {
+  width: 100%;
+  text-align: left;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.auth-actions .primary-btn,
+.auth-actions .icon-btn {
+  flex: 1;
+}
+
+.auth-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 10px 0 0;
+  width: 100%;
+  font-family: inherit;
+}
+
+.link-btn:hover {
+  color: var(--gold-bright);
 }
 
 @media (prefers-reduced-motion: reduce) {

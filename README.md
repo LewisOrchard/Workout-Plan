@@ -1,38 +1,84 @@
 # Workout Log
 
-A tiny, personal workout logger. No backend, no build step, no account —
-just open `index.html` and start logging sets.
+A personal workout logger with your push/pull/legs/accessories plan built
+in. Log a set on your phone at the gym, see it show up on your laptop at
+home — no build step, just a static site backed by a free Firebase project.
 
 ## Features
 
-- Log an exercise with sets, reps, weight (kg/lb), date, and optional notes
+- "Today's Plan" tabs (Push/Pull/Legs/Accessories) pre-loaded with your
+  exercises, target sets/reps, and form cues — tap **Log** to quick-fill the
+  form with the target and your last-used weight
+- Log any exercise with sets, reps, weight (kg/lb), date, and optional notes
 - Shows your last logged sets/reps/weight for an exercise as you type it
-- History grouped by day, newest first
-- Filter history by exercise name
+- History grouped by day, newest first, filterable by exercise name
 - Edit or delete any past entry
+- Signed-in accounts, synced in real time across every device via Firestore
 - Export your log to a JSON file for backup, and import it back later
-- All data is stored locally in your browser (`localStorage`) — nothing is
-  sent anywhere
 
-## Usage
+## Setup (one-time)
 
-Just open `index.html` in a browser. That's it.
+The app is static (just HTML/CSS/JS), but it needs a free
+[Firebase](https://firebase.google.com/) project to store your data and
+sync it between devices.
 
-To use it from your phone at the gym, host it somewhere static, e.g. GitHub
-Pages:
+### 1. Create a Firebase project
 
-1. Push this repo to GitHub (already done if you're reading this from there).
-2. In the repo settings, enable **GitHub Pages** for the `main` branch (root).
-3. Open the published URL on your phone and add it to your home screen.
+1. Go to the [Firebase console](https://console.firebase.google.com/) and
+   create a new project (Google Analytics is not needed — you can skip it).
+2. In your new project, click the **Web** icon (`</>`) to register a web
+   app. Give it any nickname. You don't need Firebase Hosting.
+3. Firebase will show you a `firebaseConfig` object. Copy it.
+4. Open `firebase-config.js` in this repo and paste your values in, replacing
+   the placeholders. These values are safe to commit — they identify your
+   project, not secrets; access is controlled by the rules below.
+
+### 2. Enable email/password sign-in
+
+1. In the Firebase console, go to **Build → Authentication → Get started**.
+2. Under **Sign-in method**, enable **Email/Password**.
+
+### 3. Create the Firestore database
+
+1. Go to **Build → Firestore Database → Create database**.
+2. Choose any nearby region, and start in **production mode**.
+3. Once created, go to the **Rules** tab and replace the rules with:
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /users/{userId}/entries/{entryId} {
+         allow read, write: if request.auth != null && request.auth.uid == userId;
+       }
+     }
+   }
+   ```
+
+   This makes sure only your signed-in account can read or write your own
+   entries.
+
+### 4. Commit and host it
+
+1. Commit your `firebase-config.js` changes and push.
+2. In this repo's GitHub settings, enable **Pages** for the `main` branch
+   (root).
+3. Open the published `https://<you>.github.io/<repo>/` URL.
+
+### 5. Create your account
+
+The first time you open the app (on your phone or laptop, doesn't matter
+which), click **Create account** and set an email + password. Then sign in
+with that *same* email and password on your other device — your log syncs
+automatically between them from then on.
+
+If `firebase-config.js` still has placeholder values, the app will show a
+"Setup required" screen instead of the sign-in form.
 
 ## Data & backups
 
-Your entries live only in the browser you're using (`localStorage`), scoped
-to the page's origin. That means:
-
-- Data does **not** sync between devices or browsers automatically.
-- Clearing browser data/history can wipe your log.
-
-Use the **Export** button occasionally to download a JSON backup, and
-**Import** it on another device/browser to bring your history along (import
-merges by entry id, so re-importing the same file won't create duplicates).
+Your entries are stored in Firestore under your account, so they're
+available on any device you sign into. Use the **Export** button
+occasionally to download a JSON backup anyway — cheap insurance, and handy
+if you ever want to move to a different backend. **Import** merges entries
+in, so it's safe to re-run.

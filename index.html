@@ -9,25 +9,78 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="app-header">
-    <span class="brand-mark" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="3" y1="12" x2="21" y2="12" />
-        <rect x="0.5" y="8" width="3" height="8" rx="1" />
-        <rect x="20.5" y="8" width="3" height="8" rx="1" />
-        <rect x="5" y="6" width="2" height="12" rx="1" />
-        <rect x="17" y="6" width="2" height="12" rx="1" />
-      </svg>
-    </span>
-    <h1>Workout Log</h1>
-    <button id="exportBtn" class="icon-btn" title="Export backup">Export</button>
-    <label class="icon-btn" title="Import backup">
-      Import
-      <input type="file" id="importInput" accept="application/json" hidden />
-    </label>
-  </header>
+  <div id="setupNotice" class="auth-overlay" hidden>
+    <div class="auth-card">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <rect x="0.5" y="8" width="3" height="8" rx="1" />
+          <rect x="20.5" y="8" width="3" height="8" rx="1" />
+          <rect x="5" y="6" width="2" height="12" rx="1" />
+          <rect x="17" y="6" width="2" height="12" rx="1" />
+        </svg>
+      </span>
+      <h1 class="auth-title">Setup required</h1>
+      <p class="auth-copy">
+        <code>firebase-config.js</code> still has placeholder values. Follow the setup steps in
+        <code>README.md</code> to create a free Firebase project, then paste your config in and reload.
+      </p>
+    </div>
+  </div>
 
-  <main>
+  <div id="authOverlay" class="auth-overlay" hidden>
+    <div class="auth-card">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <rect x="0.5" y="8" width="3" height="8" rx="1" />
+          <rect x="20.5" y="8" width="3" height="8" rx="1" />
+          <rect x="5" y="6" width="2" height="12" rx="1" />
+          <rect x="17" y="6" width="2" height="12" rx="1" />
+        </svg>
+      </span>
+      <h1 class="auth-title">Workout Log</h1>
+      <p class="auth-copy">Sign in with the same account on every device to keep your log in sync.</p>
+      <form id="authForm">
+        <div class="field">
+          <label for="authEmail">Email</label>
+          <input type="email" id="authEmail" required autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="authPassword">Password</label>
+          <input type="password" id="authPassword" required minlength="6" autocomplete="current-password" />
+        </div>
+        <p id="authError" class="auth-error" hidden></p>
+        <div class="auth-actions">
+          <button type="submit" id="signInBtn" class="primary-btn">Sign in</button>
+          <button type="button" id="signUpBtn" class="icon-btn">Create account</button>
+        </div>
+        <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="appRoot" hidden>
+    <header class="app-header">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <rect x="0.5" y="8" width="3" height="8" rx="1" />
+          <rect x="20.5" y="8" width="3" height="8" rx="1" />
+          <rect x="5" y="6" width="2" height="12" rx="1" />
+          <rect x="17" y="6" width="2" height="12" rx="1" />
+        </svg>
+      </span>
+      <h1>Workout Log</h1>
+      <button id="exportBtn" class="icon-btn" title="Export backup">Export</button>
+      <label class="icon-btn" title="Import backup">
+        Import
+        <input type="file" id="importInput" accept="application/json" hidden />
+      </label>
+      <button id="signOutBtn" class="icon-btn" title="Sign out">Sign out</button>
+    </header>
+
+    <main>
     <section class="card" id="planSection">
       <h2>Today's Plan</h2>
       <div class="day-tabs" id="dayTabs"></div>
@@ -88,8 +141,13 @@
       <div id="historyList" class="history-list"></div>
       <p id="emptyState" class="empty-state" hidden>No entries yet. Log your first exercise above.</p>
     </section>
-  </main>
+    </main>
+  </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
   <script src="plan.js"></script>
   <script src="app.js"></script>
 </body>
