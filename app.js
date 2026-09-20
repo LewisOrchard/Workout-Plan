@@ -36,6 +36,11 @@ const submitBtn = logForm.querySelector(".primary-btn");
 const dayTabs = document.getElementById("dayTabs");
 const planList = document.getElementById("planList");
 
+const stopwatchEl = document.querySelector(".stopwatch");
+const stopwatchDisplay = document.getElementById("stopwatchDisplay");
+const stopwatchToggle = document.getElementById("stopwatchToggle");
+const stopwatchResetBtn = document.getElementById("stopwatchReset");
+
 function todayISO() {
   const d = new Date();
   const offset = d.getTimezoneOffset();
@@ -52,6 +57,93 @@ function formatDateLabel(iso) {
   if (diffDays === 1) return "Yesterday";
   return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
+
+// --- Stopwatch ---
+// Tracks a start timestamp rather than just incrementing a counter, so the
+// elapsed time stays correct across page reloads/backgrounding (common on a
+// phone mid-workout), and persists per-device in localStorage.
+
+const STOPWATCH_KEY = "workout-log-stopwatch";
+let stopwatchIntervalId = null;
+
+function loadStopwatchState() {
+  try {
+    const raw = localStorage.getItem(STOPWATCH_KEY);
+    if (!raw) return { startedAt: null, elapsedMs: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      startedAt: typeof parsed.startedAt === "number" ? parsed.startedAt : null,
+      elapsedMs: typeof parsed.elapsedMs === "number" ? parsed.elapsedMs : 0,
+    };
+  } catch {
+    return { startedAt: null, elapsedMs: 0 };
+  }
+}
+
+function saveStopwatchState() {
+  try {
+    localStorage.setItem(STOPWATCH_KEY, JSON.stringify(stopwatchState));
+  } catch {
+    // ignore (e.g. private browsing with storage disabled)
+  }
+}
+
+let stopwatchState = loadStopwatchState();
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+}
+
+function currentStopwatchElapsedMs() {
+  if (stopwatchState.startedAt) {
+    return stopwatchState.elapsedMs + (Date.now() - stopwatchState.startedAt);
+  }
+  return stopwatchState.elapsedMs;
+}
+
+function renderStopwatch() {
+  stopwatchDisplay.textContent = formatElapsed(currentStopwatchElapsedMs());
+  const running = !!stopwatchState.startedAt;
+  stopwatchEl.classList.toggle("running", running);
+  stopwatchToggle.textContent = running ? "Pause" : "Start";
+}
+
+function startStopwatchTicking() {
+  if (stopwatchIntervalId) return;
+  stopwatchIntervalId = setInterval(renderStopwatch, 250);
+}
+
+function stopStopwatchTicking() {
+  if (stopwatchIntervalId) {
+    clearInterval(stopwatchIntervalId);
+    stopwatchIntervalId = null;
+  }
+}
+
+stopwatchToggle.addEventListener("click", () => {
+  if (stopwatchState.startedAt) {
+    stopwatchState.elapsedMs = currentStopwatchElapsedMs();
+    stopwatchState.startedAt = null;
+    stopStopwatchTicking();
+  } else {
+    stopwatchState.startedAt = Date.now();
+    startStopwatchTicking();
+  }
+  saveStopwatchState();
+  renderStopwatch();
+});
+
+stopwatchResetBtn.addEventListener("click", () => {
+  stopwatchState = { startedAt: null, elapsedMs: 0 };
+  stopStopwatchTicking();
+  saveStopwatchState();
+  renderStopwatch();
+});
 
 function uniqueExerciseNames() {
   const names = new Set();
@@ -508,6 +600,9 @@ signOutBtn.addEventListener("click", () => {
 dateInput.value = todayISO();
 renderDayTabs();
 renderPlanList();
+
+renderStopwatch();
+if (stopwatchState.startedAt) startStopwatchTicking();
 
 const isConfigured =
   typeof firebaseConfig !== "undefined" &&
