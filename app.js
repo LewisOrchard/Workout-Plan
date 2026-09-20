@@ -1,21 +1,24 @@
-const STORAGE_KEY = "workout-log-entries";
+const PLAN_DAY_KEY = "workout-log-selected-day";
+const planDays = Object.keys(WORKOUT_PLAN);
+let selectedDay = localStorage.getItem(PLAN_DAY_KEY) || planDays[0];
+if (!planDays.includes(selectedDay)) selectedDay = planDays[0];
 
-function loadEntries() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEntries(entries) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-}
-
-let entries = loadEntries();
+let entries = [];
 let editingId = null;
 let filterText = "";
+let currentUser = null;
+let unsubscribeEntries = null;
+
+const setupNotice = document.getElementById("setupNotice");
+const authOverlay = document.getElementById("authOverlay");
+const appRoot = document.getElementById("appRoot");
+const authForm = document.getElementById("authForm");
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authError = document.getElementById("authError");
+const signUpBtn = document.getElementById("signUpBtn");
+const forgotBtn = document.getElementById("forgotBtn");
+const signOutBtn = document.getElementById("signOutBtn");
 
 const logForm = document.getElementById("logForm");
 const exerciseInput = document.getElementById("exerciseInput");
@@ -31,15 +34,13 @@ const historyList = document.getElementById("historyList");
 const emptyState = document.getElementById("emptyState");
 const filterInput = document.getElementById("filterInput");
 const submitBtn = logForm.querySelector(".primary-btn");
+const dayTabs = document.getElementById("dayTabs");
+const planList = document.getElementById("planList");
 
 function todayISO() {
   const d = new Date();
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
-}
-
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function formatDateLabel(iso) {
@@ -182,6 +183,107 @@ function renderEntry(entry) {
   return el;
 }
 
+function parseRepsLow(repsStr) {
+  const match = String(repsStr).match(/\d+/);
+  return match ? Number(match[0]) : 10;
+}
+
+function todaysEntryFor(exerciseName) {
+  const today = todayISO();
+  const matches = entries
+    .filter((e) => e.date === today && e.exercise.toLowerCase() === exerciseName.toLowerCase())
+    .sort((a, b) => b.createdAt - a.createdAt);
+  return matches[0] || null;
+}
+
+function renderDayTabs() {
+  dayTabs.innerHTML = "";
+  planDays.forEach((day) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "day-tab" + (day === selectedDay ? " active" : "");
+    btn.textContent = day;
+    btn.addEventListener("click", () => {
+      selectedDay = day;
+      localStorage.setItem(PLAN_DAY_KEY, day);
+      renderDayTabs();
+      renderPlanList();
+    });
+    dayTabs.appendChild(btn);
+  });
+}
+
+function renderPlanList() {
+  planList.innerHTML = "";
+  const exercises = WORKOUT_PLAN[selectedDay] || [];
+
+  exercises.forEach((planEx) => {
+    const done = todaysEntryFor(planEx.name);
+
+    const item = document.createElement("div");
+    item.className = "plan-item" + (done ? " done" : "");
+
+    const main = document.createElement("div");
+    main.className = "plan-item-main";
+
+    const name = document.createElement("div");
+    name.className = "plan-item-name";
+    name.textContent = planEx.name;
+    main.appendChild(name);
+
+    const target = document.createElement("div");
+    target.className = "plan-item-target";
+    target.textContent = `Target: ${planEx.sets} sets x ${planEx.reps} reps`;
+    main.appendChild(target);
+
+    if (planEx.cue) {
+      const cue = document.createElement("div");
+      cue.className = "plan-item-cue";
+      cue.textContent = planEx.cue;
+      main.appendChild(cue);
+    }
+
+    if (done) {
+      const doneInfo = document.createElement("div");
+      doneInfo.className = "plan-item-done-info";
+      const weightStr = done.weight ? `${done.weight}${done.unit}` : "bodyweight";
+      doneInfo.textContent = `Logged today: ${done.sets}x${done.reps} @ ${weightStr}`;
+      main.appendChild(doneInfo);
+    }
+
+    item.appendChild(main);
+
+    const logBtn = document.createElement("button");
+    logBtn.type = "button";
+    logBtn.className = "plan-log-btn";
+    logBtn.textContent = done ? "Log again" : "Log";
+    logBtn.addEventListener("click", () => quickFillFromPlan(planEx));
+    item.appendChild(logBtn);
+
+    planList.appendChild(item);
+  });
+}
+
+function quickFillFromPlan(planEx) {
+  editingId = null;
+  submitBtn.textContent = "Add entry";
+  exerciseInput.value = planEx.name;
+  setsInput.value = planEx.sets;
+  repsInput.value = parseRepsLow(planEx.reps);
+  dateInput.value = todayISO();
+  notesInput.value = "";
+
+  const last = entries
+    .filter((e) => e.exercise.toLowerCase() === planEx.name.toLowerCase())
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)[0];
+  weightInput.value = last ? last.weight || "" : "";
+  if (last) unitInput.value = last.unit;
+
+  updateLastEntryHint();
+  document.getElementById("logSection").scrollIntoView({ behavior: "smooth" });
+  weightInput.focus();
+}
+
 function startEdit(id) {
   const entry = entries.find((e) => e.id === id);
   if (!entry) return;
@@ -198,16 +300,6 @@ function startEdit(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function deleteEntry(id) {
-  if (!confirm("Delete this entry?")) return;
-  entries = entries.filter((e) => e.id !== id);
-  saveEntries(entries);
-  if (editingId === id) resetForm();
-  renderExerciseDatalist();
-  renderHistory();
-  updateLastEntryHint();
-}
-
 function resetForm() {
   editingId = null;
   logForm.reset();
@@ -218,7 +310,47 @@ function resetForm() {
   lastEntryHint.textContent = "";
 }
 
-logForm.addEventListener("submit", (ev) => {
+// --- Firestore-backed entry storage ---
+// Entries live at users/{uid}/entries/{entryId}. A real-time listener keeps
+// the in-memory `entries` array (and the whole UI) in sync across devices.
+
+function entriesCollection() {
+  return firebase.firestore().collection("users").doc(currentUser.uid).collection("entries");
+}
+
+function subscribeToEntries() {
+  unsubscribeEntries = entriesCollection().onSnapshot(
+    (snapshot) => {
+      entries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      renderExerciseDatalist();
+      renderHistory();
+      renderPlanList();
+    },
+    (err) => {
+      console.error("Failed to sync entries:", err);
+    }
+  );
+}
+
+async function addEntry(data) {
+  await entriesCollection().add({ ...data, createdAt: Date.now() });
+}
+
+async function updateEntry(id, data) {
+  await entriesCollection().doc(id).update(data);
+}
+
+async function deleteEntry(id) {
+  if (!confirm("Delete this entry?")) return;
+  if (editingId === id) resetForm();
+  try {
+    await entriesCollection().doc(id).delete();
+  } catch (err) {
+    alert("Could not delete entry: " + err.message);
+  }
+}
+
+logForm.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const exercise = exerciseInput.value.trim();
   if (!exercise) return;
@@ -233,19 +365,19 @@ logForm.addEventListener("submit", (ev) => {
     notes: notesInput.value.trim(),
   };
 
-  if (editingId) {
-    const idx = entries.findIndex((e) => e.id === editingId);
-    if (idx !== -1) {
-      entries[idx] = { ...entries[idx], ...data };
+  submitBtn.disabled = true;
+  try {
+    if (editingId) {
+      await updateEntry(editingId, data);
+    } else {
+      await addEntry(data);
     }
-  } else {
-    entries.push({ id: uid(), createdAt: Date.now(), ...data });
+    resetForm();
+  } catch (err) {
+    alert("Could not save entry: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
   }
-
-  saveEntries(entries);
-  resetForm();
-  renderExerciseDatalist();
-  renderHistory();
 });
 
 exerciseInput.addEventListener("input", updateLastEntryHint);
@@ -273,13 +405,13 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
     const imported = JSON.parse(text);
     if (!Array.isArray(imported)) throw new Error("Invalid format");
 
-    const existingIds = new Set(entries.map((e) => e.id));
+    const batch = firebase.firestore().batch();
+    const collection = entriesCollection();
     let added = 0;
     imported.forEach((item) => {
-      if (item && item.exercise && item.date && !existingIds.has(item.id)) {
-        entries.push({
-          id: item.id || uid(),
-          createdAt: item.createdAt || Date.now(),
+      if (item && item.exercise && item.date) {
+        const ref = collection.doc();
+        batch.set(ref, {
           exercise: item.exercise,
           sets: Number(item.sets) || 1,
           reps: Number(item.reps) || 1,
@@ -287,14 +419,13 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
           unit: item.unit === "lb" ? "lb" : "kg",
           date: item.date,
           notes: item.notes || "",
+          createdAt: item.createdAt || Date.now(),
         });
         added++;
       }
     });
-    saveEntries(entries);
-    renderExerciseDatalist();
-    renderHistory();
-    alert(`Imported ${added} new entr${added === 1 ? "y" : "ies"}.`);
+    await batch.commit();
+    alert(`Imported ${added} entr${added === 1 ? "y" : "ies"}.`);
   } catch (err) {
     alert("Could not import file: " + err.message);
   } finally {
@@ -302,6 +433,83 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
   }
 });
 
+// --- Auth ---
+
+function showAuthError(message) {
+  authError.textContent = message;
+  authError.hidden = !message;
+}
+
+authForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  showAuthError("");
+  try {
+    await firebase.auth().signInWithEmailAndPassword(authEmail.value.trim(), authPassword.value);
+  } catch (err) {
+    showAuthError(err.message);
+  }
+});
+
+signUpBtn.addEventListener("click", async () => {
+  showAuthError("");
+  try {
+    await firebase.auth().createUserWithEmailAndPassword(authEmail.value.trim(), authPassword.value);
+  } catch (err) {
+    showAuthError(err.message);
+  }
+});
+
+forgotBtn.addEventListener("click", async () => {
+  showAuthError("");
+  const email = authEmail.value.trim();
+  if (!email) {
+    showAuthError("Enter your email above first.");
+    return;
+  }
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    showAuthError("Password reset email sent.");
+  } catch (err) {
+    showAuthError(err.message);
+  }
+});
+
+signOutBtn.addEventListener("click", () => {
+  firebase.auth().signOut();
+});
+
 dateInput.value = todayISO();
-renderExerciseDatalist();
-renderHistory();
+renderDayTabs();
+renderPlanList();
+
+const isConfigured =
+  typeof firebaseConfig !== "undefined" &&
+  firebaseConfig.apiKey &&
+  firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+if (isConfigured) {
+  setupNotice.hidden = true;
+  firebase.auth().onAuthStateChanged((user) => {
+    currentUser = user;
+
+    if (unsubscribeEntries) {
+      unsubscribeEntries();
+      unsubscribeEntries = null;
+    }
+
+    if (user) {
+      authOverlay.hidden = true;
+      appRoot.hidden = false;
+      authForm.reset();
+      entries = [];
+      subscribeToEntries();
+    } else {
+      appRoot.hidden = true;
+      authOverlay.hidden = false;
+    }
+  });
+} else {
+  setupNotice.hidden = false;
+  authOverlay.hidden = true;
+  appRoot.hidden = true;
+}
