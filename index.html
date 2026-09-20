@@ -88,7 +88,7 @@
     </section>
 
     <section class="card" id="logSection">
-      <h2>Log an exercise</h2>
+      <h2>Log a set</h2>
       <form id="logForm">
         <div class="field">
           <label for="exerciseInput">Exercise</label>
@@ -99,16 +99,12 @@
 
         <div class="field-row">
           <div class="field">
-            <label for="setsInput">Sets</label>
-            <input type="number" id="setsInput" name="sets" min="1" step="1" value="3" required />
-          </div>
-          <div class="field">
             <label for="repsInput">Reps</label>
-            <input type="number" id="repsInput" name="reps" min="1" step="1" value="10" required />
+            <input type="number" id="repsInput" name="reps" min="1" step="1" inputmode="numeric" value="10" required />
           </div>
           <div class="field">
             <label for="weightInput">Weight</label>
-            <input type="number" id="weightInput" name="weight" min="0" step="0.5" placeholder="0" />
+            <input type="number" id="weightInput" name="weight" min="0" step="0.25" inputmode="decimal" placeholder="0" />
           </div>
           <div class="field field-unit">
             <label for="unitInput">Unit</label>
@@ -129,7 +125,7 @@
           <input type="text" id="notesInput" name="notes" placeholder="e.g. felt strong, last set to failure" />
         </div>
 
-        <button type="submit" class="primary-btn">Add entry</button>
+        <button type="submit" class="primary-btn">Log set</button>
       </form>
     </section>
 
