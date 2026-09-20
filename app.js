@@ -22,7 +22,6 @@ const signOutBtn = document.getElementById("signOutBtn");
 
 const logForm = document.getElementById("logForm");
 const exerciseInput = document.getElementById("exerciseInput");
-const setsInput = document.getElementById("setsInput");
 const repsInput = document.getElementById("repsInput");
 const weightInput = document.getElementById("weightInput");
 const unitInput = document.getElementById("unitInput");
@@ -84,7 +83,7 @@ function updateLastEntryHint() {
   }
   const last = matches[0];
   const weightStr = last.weight ? `${last.weight}${last.unit}` : "bodyweight";
-  lastEntryHint.textContent = `Last time: ${last.sets}x${last.reps} @ ${weightStr} (${formatDateLabel(last.date)})`;
+  lastEntryHint.textContent = `Last set: ${last.reps} reps @ ${weightStr} (${formatDateLabel(last.date)})`;
 }
 
 function groupByDate(list) {
@@ -94,6 +93,21 @@ function groupByDate(list) {
     groups.get(e.date).push(e);
   });
   return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function groupByExercise(dayEntries) {
+  const groups = new Map();
+  dayEntries.forEach((e) => {
+    if (!groups.has(e.exercise)) groups.set(e.exercise, []);
+    groups.get(e.exercise).push(e);
+  });
+  return [...groups.entries()]
+    .map(([name, list]) => [name, list.slice().sort((a, b) => a.createdAt - b.createdAt)])
+    .sort((a, b) => {
+      const aLast = a[1][a[1].length - 1].createdAt;
+      const bLast = b[1][b[1].length - 1].createdAt;
+      return bLast - aLast;
+    });
 }
 
 function renderHistory() {
@@ -125,33 +139,45 @@ function renderHistory() {
     label.textContent = formatDateLabel(date);
     group.appendChild(label);
 
-    dayEntries
-      .slice()
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .forEach((entry) => {
-        group.appendChild(renderEntry(entry));
-      });
+    groupByExercise(dayEntries).forEach(([exerciseName, setEntries]) => {
+      group.appendChild(renderExerciseGroup(exerciseName, setEntries));
+    });
 
     historyList.appendChild(group);
   });
 }
 
-function renderEntry(entry) {
+function renderExerciseGroup(exerciseName, setEntries) {
+  const wrap = document.createElement("div");
+  wrap.className = "exercise-group";
+
+  const header = document.createElement("div");
+  header.className = "exercise-group-header";
+  header.textContent = `${exerciseName} — ${setEntries.length} set${setEntries.length === 1 ? "" : "s"}`;
+  wrap.appendChild(header);
+
+  setEntries.forEach((entry, i) => {
+    wrap.appendChild(renderSetRow(entry, i + 1));
+  });
+
+  return wrap;
+}
+
+function renderSetRow(entry, setNumber) {
   const el = document.createElement("div");
   el.className = "entry";
 
   const main = document.createElement("div");
   main.className = "entry-main";
 
-  const title = document.createElement("div");
-  title.className = "entry-exercise";
-  title.textContent = entry.exercise;
-  main.appendChild(title);
-
   const detail = document.createElement("div");
   detail.className = "entry-detail";
   const weightStr = entry.weight ? `${entry.weight}${entry.unit}` : "bodyweight";
-  detail.textContent = `${entry.sets} sets x ${entry.reps} reps @ ${weightStr}`;
+  const setLabel = document.createElement("span");
+  setLabel.className = "set-label";
+  setLabel.textContent = `Set ${setNumber}`;
+  detail.appendChild(setLabel);
+  detail.appendChild(document.createTextNode(`${entry.reps} reps @ ${weightStr}`));
   main.appendChild(detail);
 
   if (entry.notes) {
@@ -188,12 +214,11 @@ function parseRepsLow(repsStr) {
   return match ? Number(match[0]) : 10;
 }
 
-function todaysEntryFor(exerciseName) {
+function todaysSetsFor(exerciseName) {
   const today = todayISO();
-  const matches = entries
+  return entries
     .filter((e) => e.date === today && e.exercise.toLowerCase() === exerciseName.toLowerCase())
-    .sort((a, b) => b.createdAt - a.createdAt);
-  return matches[0] || null;
+    .sort((a, b) => a.createdAt - b.createdAt);
 }
 
 function renderDayTabs() {
@@ -218,7 +243,8 @@ function renderPlanList() {
   const exercises = WORKOUT_PLAN[selectedDay] || [];
 
   exercises.forEach((planEx) => {
-    const done = todaysEntryFor(planEx.name);
+    const todaysSets = todaysSetsFor(planEx.name);
+    const done = todaysSets.length > 0;
 
     const item = document.createElement("div");
     item.className = "plan-item" + (done ? " done" : "");
@@ -246,8 +272,12 @@ function renderPlanList() {
     if (done) {
       const doneInfo = document.createElement("div");
       doneInfo.className = "plan-item-done-info";
-      const weightStr = done.weight ? `${done.weight}${done.unit}` : "bodyweight";
-      doneInfo.textContent = `Logged today: ${done.sets}x${done.reps} @ ${weightStr}`;
+      doneInfo.textContent = todaysSets
+        .map((s, i) => {
+          const weightStr = s.weight ? `${s.weight}${s.unit}` : "bodyweight";
+          return `Set ${i + 1}: ${weightStr} × ${s.reps}`;
+        })
+        .join("   ");
       main.appendChild(doneInfo);
     }
 
@@ -256,26 +286,27 @@ function renderPlanList() {
     const logBtn = document.createElement("button");
     logBtn.type = "button";
     logBtn.className = "plan-log-btn";
-    logBtn.textContent = done ? "Log again" : "Log";
-    logBtn.addEventListener("click", () => quickFillFromPlan(planEx));
+    logBtn.textContent = `Log set ${todaysSets.length + 1}`;
+    logBtn.addEventListener("click", () => quickFillFromPlan(planEx, todaysSets));
     item.appendChild(logBtn);
 
     planList.appendChild(item);
   });
 }
 
-function quickFillFromPlan(planEx) {
+function quickFillFromPlan(planEx, todaysSets) {
   editingId = null;
-  submitBtn.textContent = "Add entry";
+  submitBtn.textContent = "Log set";
   exerciseInput.value = planEx.name;
-  setsInput.value = planEx.sets;
   repsInput.value = parseRepsLow(planEx.reps);
   dateInput.value = todayISO();
   notesInput.value = "";
 
-  const last = entries
+  const lastToday = todaysSets && todaysSets.length ? todaysSets[todaysSets.length - 1] : null;
+  const lastEver = entries
     .filter((e) => e.exercise.toLowerCase() === planEx.name.toLowerCase())
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)[0];
+  const last = lastToday || lastEver;
   weightInput.value = last ? last.weight || "" : "";
   if (last) unitInput.value = last.unit;
 
@@ -289,7 +320,6 @@ function startEdit(id) {
   if (!entry) return;
   editingId = id;
   exerciseInput.value = entry.exercise;
-  setsInput.value = entry.sets;
   repsInput.value = entry.reps;
   weightInput.value = entry.weight || "";
   unitInput.value = entry.unit;
@@ -304,9 +334,8 @@ function resetForm() {
   editingId = null;
   logForm.reset();
   dateInput.value = todayISO();
-  setsInput.value = 3;
   repsInput.value = 10;
-  submitBtn.textContent = "Add entry";
+  submitBtn.textContent = "Log set";
   lastEntryHint.textContent = "";
 }
 
@@ -357,7 +386,6 @@ logForm.addEventListener("submit", async (ev) => {
 
   const data = {
     exercise,
-    sets: Number(setsInput.value),
     reps: Number(repsInput.value),
     weight: weightInput.value ? Number(weightInput.value) : 0,
     unit: unitInput.value,
@@ -413,7 +441,6 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
         const ref = collection.doc();
         batch.set(ref, {
           exercise: item.exercise,
-          sets: Number(item.sets) || 1,
           reps: Number(item.reps) || 1,
           weight: Number(item.weight) || 0,
           unit: item.unit === "lb" ? "lb" : "kg",

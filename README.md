@@ -7,12 +7,16 @@ home — no build step, just a static site backed by a free Firebase project.
 ## Features
 
 - "Today's Plan" tabs (Push/Pull/Legs/Accessories) pre-loaded with your
-  exercises, target sets/reps, and form cues — tap **Log** to quick-fill the
-  form with the target and your last-used weight
-- Log any exercise with sets, reps, weight (kg/lb), date, and optional notes
-- Shows your last logged sets/reps/weight for an exercise as you type it
-- History grouped by day, newest first, filterable by exercise name
-- Edit or delete any past entry
+  exercises, target sets/reps, and form cues — tap **Log set** to quick-fill
+  the form with the target reps and your last-used weight
+- Log **one set at a time** (reps, weight in kg/lb, date, optional notes) —
+  since real sets vary in weight/reps, there's no aggregate "3 sets of X"
+  entry; each set you log is its own row
+- Shows your progress today per exercise (e.g. "Set 1: 19.5kg × 17, Set 2:
+  21.25kg × 15...") and your last logged set as you type an exercise name
+- History grouped by day, then by exercise, with each individual set listed
+  and numbered
+- Edit or delete any individual set
 - Signed-in accounts, synced in real time across every device via Firestore
 - Export your log to a JSON file for backup, and import it back later
 

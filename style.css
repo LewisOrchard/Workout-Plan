@@ -123,7 +123,7 @@ form {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: 8px;
 }
 
@@ -212,7 +212,7 @@ input:focus, select:focus {
 .day-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
 }
 
 .day-label {
@@ -220,6 +220,17 @@ input:focus, select:focus {
   letter-spacing: 0.05em;
   font-size: 0.9rem;
   color: var(--gold-bright);
+}
+
+.exercise-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exercise-group-header {
+  font-weight: 600;
+  font-size: 0.88rem;
 }
 
 .entry {
@@ -230,6 +241,7 @@ input:focus, select:focus {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: 4px;
 }
 
 .entry-main {
@@ -237,14 +249,16 @@ input:focus, select:focus {
   min-width: 0;
 }
 
-.entry-exercise {
-  font-weight: 600;
-}
-
 .entry-detail {
   font-size: 0.85rem;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+.set-label {
+  color: var(--gold-bright);
+  font-weight: 600;
+  margin-right: 8px;
 }
 
 .entry-notes {
