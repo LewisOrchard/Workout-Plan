@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Workout Log</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Workout Log</h1>
+    <button id="exportBtn" class="icon-btn" title="Export backup">Export</button>
+    <label class="icon-btn" title="Import backup">
+      Import
+      <input type="file" id="importInput" accept="application/json" hidden />
+    </label>
+  </header>
+
+  <main>
+    <section class="card" id="logSection">
+      <h2>Log an exercise</h2>
+      <form id="logForm">
+        <div class="field">
+          <label for="exerciseInput">Exercise</label>
+          <input list="exerciseList" id="exerciseInput" name="exercise" placeholder="e.g. Bench press" required autocomplete="off" />
+          <datalist id="exerciseList"></datalist>
+          <span id="lastEntryHint" class="hint"></span>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="setsInput">Sets</label>
+            <input type="number" id="setsInput" name="sets" min="1" step="1" value="3" required />
+          </div>
+          <div class="field">
+            <label for="repsInput">Reps</label>
+            <input type="number" id="repsInput" name="reps" min="1" step="1" value="10" required />
+          </div>
+          <div class="field">
+            <label for="weightInput">Weight</label>
+            <input type="number" id="weightInput" name="weight" min="0" step="0.5" placeholder="0" />
+          </div>
+          <div class="field field-unit">
+            <label for="unitInput">Unit</label>
+            <select id="unitInput" name="unit">
+              <option value="kg">kg</option>
+              <option value="lb">lb</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="dateInput">Date</label>
+          <input type="date" id="dateInput" name="date" required />
+        </div>
+
+        <div class="field">
+          <label for="notesInput">Notes (optional)</label>
+          <input type="text" id="notesInput" name="notes" placeholder="e.g. felt strong, last set to failure" />
+        </div>
+
+        <button type="submit" class="primary-btn">Add entry</button>
+      </form>
+    </section>
+
+    <section class="card" id="historySection">
+      <div class="history-header">
+        <h2>History</h2>
+        <input type="text" id="filterInput" placeholder="Filter by exercise..." />
+      </div>
+      <div id="historyList" class="history-list"></div>
+      <p id="emptyState" class="empty-state" hidden>No entries yet. Log your first exercise above.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
