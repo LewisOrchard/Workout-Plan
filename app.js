@@ -118,6 +118,18 @@ const stopwatchDisplay = document.getElementById("stopwatchDisplay");
 const stopwatchToggle = document.getElementById("stopwatchToggle");
 const stopwatchResetBtn = document.getElementById("stopwatchReset");
 
+const progressSelect = document.getElementById("progressSelect");
+const progressContent = document.getElementById("progressContent");
+const progressEmpty = document.getElementById("progressEmpty");
+const progressBestValue = document.getElementById("progressBestValue");
+const progressBestSub = document.getElementById("progressBestSub");
+const progressLastValue = document.getElementById("progressLastValue");
+const progressLastSub = document.getElementById("progressLastSub");
+const progressChartWrap = document.getElementById("progressChartWrap");
+const progressChart = document.getElementById("progressChart");
+const progressTooltip = document.getElementById("progressTooltip");
+const progressViewHistoryBtn = document.getElementById("progressViewHistoryBtn");
+
 function formatDateLabel(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, d);
@@ -230,6 +242,257 @@ function renderExerciseDatalist() {
     exerciseList.appendChild(opt);
   });
 }
+
+// --- Exercise progress chart ---
+// Session-indexed (one point per day you logged the exercise, evenly
+// spaced) rather than true calendar time, so rest days/gaps between
+// sessions don't stretch the trend line out of proportion.
+
+function formatWeightValue(weight, unit) {
+  return weight ? `${weight}${unit}` : "bodyweight";
+}
+
+function dailyBestSeriesFor(exerciseName) {
+  const matches = entries.filter((e) => e.exercise.toLowerCase() === exerciseName.toLowerCase());
+  const byDate = new Map();
+  matches.forEach((e) => {
+    const existing = byDate.get(e.date);
+    if (!existing || e.weight > existing.weight) {
+      byDate.set(e.date, e);
+    }
+  });
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function renderProgressSelect() {
+  const current = progressSelect.value;
+  progressSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select an exercise…";
+  progressSelect.appendChild(placeholder);
+
+  uniqueExerciseNames().forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    progressSelect.appendChild(opt);
+  });
+
+  if (current && uniqueExerciseNames().includes(current)) {
+    progressSelect.value = current;
+  }
+}
+
+function renderProgress() {
+  const name = progressSelect.value;
+  if (!name) {
+    progressContent.hidden = true;
+    progressEmpty.hidden = false;
+    progressEmpty.textContent = "Select an exercise to see your progress.";
+    return;
+  }
+
+  const series = dailyBestSeriesFor(name);
+  if (series.length === 0) {
+    progressContent.hidden = true;
+    progressEmpty.hidden = false;
+    progressEmpty.textContent = "No sets logged yet for this exercise.";
+    return;
+  }
+
+  progressEmpty.hidden = true;
+  progressContent.hidden = false;
+
+  const best = series.reduce((max, s) => (s.weight > max.weight ? s : max), series[0]);
+  progressBestValue.textContent = formatWeightValue(best.weight, best.unit);
+  progressBestSub.textContent = `${best.reps} reps · ${formatDateLabel(best.date)}`;
+
+  const last = series[series.length - 1];
+  progressLastValue.textContent = formatWeightValue(last.weight, last.unit);
+  progressLastSub.textContent = `${last.reps} reps · ${formatDateLabel(last.date)}`;
+
+  drawProgressChart(series);
+}
+
+function drawProgressChart(series) {
+  const width = progressChartWrap.clientWidth || 300;
+  const height = 180;
+  const padLeft = 34;
+  const padRight = 14;
+  const padTop = 20;
+  const padBottom = 24;
+  const innerWidth = Math.max(width - padLeft - padRight, 10);
+  const innerHeight = height - padTop - padBottom;
+
+  const weights = series.map((s) => s.weight);
+  let minW = Math.min(...weights);
+  let maxW = Math.max(...weights);
+  if (minW === maxW) {
+    minW -= 1;
+    maxW += 1;
+  } else {
+    const pad = (maxW - minW) * 0.15;
+    minW -= pad;
+    maxW += pad;
+  }
+  minW = Math.max(minW, 0);
+
+  const xFor = (i) => (series.length === 1 ? padLeft + innerWidth / 2 : padLeft + (i / (series.length - 1)) * innerWidth);
+  const yFor = (w) => padTop + innerHeight - ((w - minW) / (maxW - minW)) * innerHeight;
+
+  const points = series.map((s, i) => ({ x: xFor(i), y: yFor(s.weight), data: s }));
+
+  const svgNs = "http://www.w3.org/2000/svg";
+  progressChart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  progressChart.innerHTML = "";
+
+  function makeEl(tag, attrs) {
+    const el = document.createElementNS(svgNs, tag);
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    return el;
+  }
+
+  // Gridlines + y-axis labels (min/max only — recessive, not every tick)
+  [minW, maxW].forEach((w) => {
+    const y = yFor(w);
+    progressChart.appendChild(
+      makeEl("line", { class: "progress-chart-grid", x1: padLeft, x2: width - padRight, y1: y, y2: y })
+    );
+    const label = makeEl("text", { class: "progress-chart-axis-label", x: 4, y: y + 3 });
+    label.textContent = Math.round(w * 10) / 10;
+    progressChart.appendChild(label);
+  });
+
+  // X-axis: first/last date only (selective labels, not every point)
+  const firstLabel = makeEl("text", {
+    class: "progress-chart-axis-label",
+    x: padLeft,
+    y: height - 6,
+    "text-anchor": "start",
+  });
+  firstLabel.textContent = formatDateLabel(series[0].date);
+  progressChart.appendChild(firstLabel);
+
+  if (series.length > 1) {
+    const lastLabel = makeEl("text", {
+      class: "progress-chart-axis-label",
+      x: width - padRight,
+      y: height - 6,
+      "text-anchor": "end",
+    });
+    lastLabel.textContent = formatDateLabel(series[series.length - 1].date);
+    progressChart.appendChild(lastLabel);
+  }
+
+  if (points.length > 1) {
+    const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+    const areaPath = `${linePath} L${points[points.length - 1].x},${padTop + innerHeight} L${points[0].x},${padTop + innerHeight} Z`;
+    progressChart.appendChild(makeEl("path", { class: "progress-chart-area", d: areaPath }));
+    progressChart.appendChild(makeEl("path", { class: "progress-chart-line", d: linePath }));
+  }
+
+  const dots = points.map((p) =>
+    makeEl("circle", { class: "progress-chart-dot", cx: p.x, cy: p.y, r: 4, "data-index": points.indexOf(p) })
+  );
+  dots.forEach((dot) => progressChart.appendChild(dot));
+
+  const endPoint = points[points.length - 1];
+  const endLabel = makeEl("text", {
+    class: "progress-chart-endlabel",
+    x: Math.min(endPoint.x + 8, width - 4),
+    y: Math.max(endPoint.y - 10, 12),
+    "text-anchor": endPoint.x + 8 > width - 40 ? "end" : "start",
+  });
+  endLabel.textContent = formatWeightValue(endPoint.data.weight, endPoint.data.unit);
+  progressChart.appendChild(endLabel);
+
+  const crosshair = makeEl("line", {
+    class: "progress-chart-crosshair",
+    x1: 0,
+    x2: 0,
+    y1: padTop,
+    y2: padTop + innerHeight,
+  });
+  crosshair.style.display = "none";
+  progressChart.appendChild(crosshair);
+
+  const hitArea = makeEl("rect", {
+    x: padLeft,
+    y: 0,
+    width: innerWidth,
+    height,
+    fill: "transparent",
+  });
+  progressChart.appendChild(hitArea);
+
+  function showTooltipAt(index) {
+    const p = points[index];
+    dots.forEach((dot, i) => dot.classList.toggle("hovered", i === index));
+    crosshair.setAttribute("x1", p.x);
+    crosshair.setAttribute("x2", p.x);
+    crosshair.style.display = "";
+
+    progressTooltip.innerHTML = "";
+    const strong = document.createElement("strong");
+    strong.textContent = formatWeightValue(p.data.weight, p.data.unit);
+    const sub = document.createElement("div");
+    sub.className = "progress-tooltip-sub";
+    sub.textContent = `${p.data.reps} reps · ${formatDateLabel(p.data.date)}`;
+    progressTooltip.appendChild(strong);
+    progressTooltip.appendChild(sub);
+
+    const wrapRect = progressChartWrap.getBoundingClientRect();
+    progressTooltip.style.left = `${(p.x / width) * wrapRect.width}px`;
+    progressTooltip.style.top = `${(p.y / height) * wrapRect.height - 8}px`;
+    progressTooltip.hidden = false;
+  }
+
+  function hideTooltip() {
+    dots.forEach((dot) => dot.classList.remove("hovered"));
+    crosshair.style.display = "none";
+    progressTooltip.hidden = true;
+  }
+
+  function nearestIndexFor(clientX) {
+    const rect = progressChart.getBoundingClientRect();
+    const localX = ((clientX - rect.left) / rect.width) * width;
+    let nearest = 0;
+    let nearestDist = Infinity;
+    points.forEach((p, i) => {
+      const dist = Math.abs(p.x - localX);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = i;
+      }
+    });
+    return nearest;
+  }
+
+  hitArea.addEventListener("pointermove", (ev) => showTooltipAt(nearestIndexFor(ev.clientX)));
+  hitArea.addEventListener("pointerdown", (ev) => showTooltipAt(nearestIndexFor(ev.clientX)));
+  hitArea.addEventListener("pointerleave", hideTooltip);
+  dots.forEach((dot, i) => {
+    dot.addEventListener("pointerenter", () => showTooltipAt(i));
+  });
+}
+
+let progressResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(progressResizeTimer);
+  progressResizeTimer = setTimeout(() => {
+    if (progressSelect.value) renderProgress();
+  }, 200);
+});
+
+progressSelect.addEventListener("change", renderProgress);
+
+progressViewHistoryBtn.addEventListener("click", () => {
+  filterInput.value = progressSelect.value;
+  filterText = progressSelect.value;
+  renderHistory();
+  document.getElementById("historySection").scrollIntoView({ behavior: "smooth" });
+});
 
 function updateLastEntryHint() {
   const name = exerciseInput.value.trim().toLowerCase();
@@ -526,6 +789,8 @@ function subscribeToEntries() {
       renderExerciseDatalist();
       renderHistory();
       renderPlanList();
+      renderProgressSelect();
+      renderProgress();
     },
     (err) => {
       console.error("Failed to sync entries:", err);

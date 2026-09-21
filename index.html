@@ -140,6 +140,40 @@
       </form>
     </section>
 
+    <section class="card" id="progressSection">
+      <h2>Exercise Progress</h2>
+      <div class="field">
+        <label for="progressSelect">Exercise</label>
+        <select id="progressSelect">
+          <option value="">Select an exercise…</option>
+        </select>
+      </div>
+
+      <div id="progressContent" hidden>
+        <div class="progress-stats">
+          <div class="progress-stat">
+            <div class="progress-stat-label">Personal best</div>
+            <div class="progress-stat-value" id="progressBestValue">—</div>
+            <div class="progress-stat-sub" id="progressBestSub"></div>
+          </div>
+          <div class="progress-stat">
+            <div class="progress-stat-label">Last session</div>
+            <div class="progress-stat-value" id="progressLastValue">—</div>
+            <div class="progress-stat-sub" id="progressLastSub"></div>
+          </div>
+        </div>
+
+        <div class="progress-chart-wrap" id="progressChartWrap">
+          <svg id="progressChart" class="progress-chart"></svg>
+          <div id="progressTooltip" class="progress-tooltip" hidden></div>
+        </div>
+
+        <button type="button" id="progressViewHistoryBtn" class="link-btn">View all sets in History ↓</button>
+      </div>
+
+      <p id="progressEmpty" class="empty-state">Select an exercise to see your progress.</p>
+    </section>
+
     <section class="card" id="historySection">
       <div class="history-header">
         <h2>History</h2>
