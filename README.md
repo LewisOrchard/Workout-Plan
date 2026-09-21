@@ -15,9 +15,10 @@ home — no build step, just a static site backed by a free Firebase project.
   routine. Switching tabs manually sticks for the rest of that day.
 - A Start/Pause/Reset stopwatch at the top of the page, for timing rest or
   the whole session
-- Log **one set at a time** (reps, weight in kg/lb, date, optional notes) —
-  since real sets vary in weight/reps, there's no aggregate "3 sets of X"
-  entry; each set you log is its own row
+- Log **one set at a time** (reps, weight in kg/lb, date, a drop set
+  checkbox, optional notes) — since real sets vary in weight/reps, there's
+  no aggregate "3 sets of X" entry; each set you log is its own row, marked
+  with a "Drop set" badge in Today's Plan and History when checked
 - Shows your progress today per exercise (e.g. "Set 1: 19.5kg × 17, Set 2:
   21.25kg × 15...") and your last logged set as you type an exercise name
 - History grouped by day, then by exercise, with each individual set listed

@@ -194,6 +194,23 @@ input:focus, select:focus {
   min-height: 1em;
 }
 
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
 .primary-btn {
   background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   color: #171410;
@@ -292,6 +309,20 @@ input:focus, select:focus {
   color: var(--gold-bright);
   font-weight: 600;
   margin-right: 8px;
+}
+
+.drop-set-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  vertical-align: middle;
 }
 
 .entry-notes {
