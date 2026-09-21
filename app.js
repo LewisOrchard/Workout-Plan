@@ -102,6 +102,7 @@ const exerciseInput = document.getElementById("exerciseInput");
 const repsInput = document.getElementById("repsInput");
 const weightInput = document.getElementById("weightInput");
 const unitInput = document.getElementById("unitInput");
+const dropSetInput = document.getElementById("dropSetInput");
 const dateInput = document.getElementById("dateInput");
 const notesInput = document.getElementById("notesInput");
 const exerciseList = document.getElementById("exerciseList");
@@ -604,6 +605,12 @@ function renderSetRow(entry, setNumber) {
   setLabel.textContent = `Set ${setNumber}`;
   detail.appendChild(setLabel);
   detail.appendChild(document.createTextNode(`${entry.reps} reps @ ${weightStr}`));
+  if (entry.dropSet) {
+    const badge = document.createElement("span");
+    badge.className = "drop-set-badge";
+    badge.textContent = "Drop set";
+    detail.appendChild(badge);
+  }
   main.appendChild(detail);
 
   if (entry.notes) {
@@ -701,7 +708,7 @@ function renderPlanList() {
       doneInfo.textContent = todaysSets
         .map((s, i) => {
           const weightStr = s.weight ? `${s.weight}${s.unit}` : "bodyweight";
-          return `Set ${i + 1}: ${weightStr} × ${s.reps}`;
+          return `Set ${i + 1}: ${weightStr} × ${s.reps}${s.dropSet ? " · drop set" : ""}`;
         })
         .join("   ");
       main.appendChild(doneInfo);
@@ -727,6 +734,7 @@ function quickFillFromPlan(planEx, todaysSets) {
   repsInput.value = parseRepsLow(planEx.reps);
   dateInput.value = todayISO();
   notesInput.value = "";
+  dropSetInput.checked = false;
 
   const lastToday = todaysSets && todaysSets.length ? todaysSets[todaysSets.length - 1] : null;
   const lastEver = entries
@@ -751,6 +759,7 @@ function startEdit(id) {
   unitInput.value = entry.unit;
   dateInput.value = entry.date;
   notesInput.value = entry.notes || "";
+  dropSetInput.checked = !!entry.dropSet;
   submitBtn.textContent = "Save changes";
   exerciseInput.focus();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -828,6 +837,7 @@ logForm.addEventListener("submit", async (ev) => {
     unit: unitInput.value,
     date: dateInput.value || todayISO(),
     notes: notesInput.value.trim(),
+    dropSet: dropSetInput.checked,
   };
 
   submitBtn.disabled = true;
@@ -883,6 +893,7 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
           unit: item.unit === "lb" ? "lb" : "kg",
           date: item.date,
           notes: item.notes || "",
+          dropSet: !!item.dropSet,
           createdAt: item.createdAt || Date.now(),
         });
         added++;
