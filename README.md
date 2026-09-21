@@ -9,6 +9,12 @@ home — no build step, just a static site backed by a free Firebase project.
 - "Today's Plan" tabs (Push/Pull/Legs/Accessories) pre-loaded with your
   exercises, target sets/reps, and form cues — tap **Log set** to quick-fill
   the form with the target reps and your last-used weight
+- The right day tab is pre-selected automatically based on what you last
+  logged (e.g. logged Push yesterday → Pull is selected today), not a fixed
+  weekday schedule — so it still works with rest days or an irregular
+  routine. Switching tabs manually sticks for the rest of that day.
+- A Start/Pause/Reset stopwatch at the top of the page, for timing rest or
+  the whole session
 - Log **one set at a time** (reps, weight in kg/lb, date, optional notes) —
   since real sets vary in weight/reps, there's no aggregate "3 sets of X"
   entry; each set you log is its own row
