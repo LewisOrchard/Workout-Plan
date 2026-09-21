@@ -340,6 +340,132 @@ input:focus, select:focus {
   padding: 28px 0;
 }
 
+#progressSelect {
+  margin-bottom: 4px;
+}
+
+#progressContent {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.progress-stat {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.progress-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.progress-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--gold-bright);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-stat-sub {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+.progress-chart-wrap {
+  position: relative;
+}
+
+.progress-chart {
+  display: block;
+  width: 100%;
+  height: 180px;
+  touch-action: pan-y;
+}
+
+.progress-chart-axis-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  fill: var(--text-faint);
+}
+
+.progress-chart-grid {
+  stroke: var(--border-soft);
+  stroke-width: 1;
+}
+
+.progress-chart-line {
+  fill: none;
+  stroke: var(--gold-bright);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.progress-chart-area {
+  fill: var(--gold-bright);
+  opacity: 0.08;
+}
+
+.progress-chart-dot {
+  fill: var(--gold-bright);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.progress-chart-dot.hovered {
+  fill: var(--gold);
+  r: 6;
+}
+
+.progress-chart-crosshair {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.progress-chart-endlabel {
+  font-family: var(--font-display);
+  font-size: 13px;
+  fill: var(--gold-bright);
+}
+
+.progress-tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.progress-tooltip strong {
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-tooltip .progress-tooltip-sub {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
 .day-tabs {
   display: flex;
   gap: 6px;

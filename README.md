@@ -23,6 +23,10 @@ home — no build step, just a static site backed by a free Firebase project.
 - History grouped by day, then by exercise, with each individual set listed
   and numbered
 - Edit or delete any individual set
+- **Exercise Progress**: pick an exercise to see a personal best, your last
+  session, and a chart of your best set per session over time — a much
+  faster way to check "how much was I lifting on this a month ago" than
+  scrolling through History once it gets long
 - Signed-in accounts, synced in real time across every device via Firestore
 - Export your log to a JSON file for backup, and import it back later
 
