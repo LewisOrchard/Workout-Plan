@@ -1,7 +1,84 @@
+function todayISO() {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
+// Auto-suggests the day tab from workout history rather than the calendar,
+// since rest days/irregular training make a fixed weekday rotation wrong.
+// The suggestion is remembered per-date, so switching tabs manually during
+// the day sticks until the next calendar day recomputes it.
 const PLAN_DAY_KEY = "workout-log-selected-day";
 const planDays = Object.keys(WORKOUT_PLAN);
-let selectedDay = localStorage.getItem(PLAN_DAY_KEY) || planDays[0];
-if (!planDays.includes(selectedDay)) selectedDay = planDays[0];
+
+const EXERCISE_DAY_INDEX = (() => {
+  const index = new Map();
+  planDays.forEach((day) => {
+    WORKOUT_PLAN[day].forEach((ex) => {
+      const key = ex.name.toLowerCase();
+      if (!index.has(key)) index.set(key, new Set());
+      index.get(key).add(day);
+    });
+  });
+  return index;
+})();
+
+function loadDayChoice() {
+  try {
+    const raw = localStorage.getItem(PLAN_DAY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDayChoice(day) {
+  try {
+    localStorage.setItem(PLAN_DAY_KEY, JSON.stringify({ date: todayISO(), day }));
+  } catch {
+    // ignore (e.g. private browsing with storage disabled)
+  }
+}
+
+const storedDayChoice = loadDayChoice();
+let needsAutoDaySuggestion = !(
+  storedDayChoice &&
+  storedDayChoice.date === todayISO() &&
+  planDays.includes(storedDayChoice.day)
+);
+let selectedDay = needsAutoDaySuggestion ? planDays[0] : storedDayChoice.day;
+
+function suggestNextDay() {
+  if (entries.length === 0) return null;
+  const lastDate = entries.reduce((max, e) => (e.date > max ? e.date : max), entries[0].date);
+  const lastDayEntries = entries.filter((e) => e.date === lastDate);
+
+  const counts = {};
+  planDays.forEach((day) => {
+    counts[day] = 0;
+  });
+
+  lastDayEntries.forEach((e) => {
+    const days = EXERCISE_DAY_INDEX.get(e.exercise.toLowerCase());
+    if (days && days.size === 1) {
+      const [onlyDay] = days;
+      counts[onlyDay]++;
+    }
+  });
+
+  let bestDay = null;
+  let bestCount = 0;
+  planDays.forEach((day) => {
+    if (counts[day] > bestCount) {
+      bestCount = counts[day];
+      bestDay = day;
+    }
+  });
+
+  if (!bestDay) return null;
+  const idx = planDays.indexOf(bestDay);
+  return planDays[(idx + 1) % planDays.length];
+}
 
 let entries = [];
 let editingId = null;
@@ -40,12 +117,6 @@ const stopwatchEl = document.querySelector(".stopwatch");
 const stopwatchDisplay = document.getElementById("stopwatchDisplay");
 const stopwatchToggle = document.getElementById("stopwatchToggle");
 const stopwatchResetBtn = document.getElementById("stopwatchReset");
-
-function todayISO() {
-  const d = new Date();
-  const offset = d.getTimezoneOffset();
-  return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
-}
 
 function formatDateLabel(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -322,7 +393,7 @@ function renderDayTabs() {
     btn.textContent = day;
     btn.addEventListener("click", () => {
       selectedDay = day;
-      localStorage.setItem(PLAN_DAY_KEY, day);
+      saveDayChoice(day);
       renderDayTabs();
       renderPlanList();
     });
@@ -443,6 +514,15 @@ function subscribeToEntries() {
   unsubscribeEntries = entriesCollection().onSnapshot(
     (snapshot) => {
       entries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      if (needsAutoDaySuggestion) {
+        needsAutoDaySuggestion = false;
+        const suggested = suggestNextDay();
+        if (suggested) {
+          selectedDay = suggested;
+          saveDayChoice(selectedDay);
+          renderDayTabs();
+        }
+      }
       renderExerciseDatalist();
       renderHistory();
       renderPlanList();
