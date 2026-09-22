@@ -774,6 +774,19 @@ function resetForm() {
   lastEntryHint.textContent = "";
 }
 
+// After logging a set, the next one is almost always the same exercise --
+// keep exercise/reps/weight/unit/date as-is and just clear the per-set
+// fields, so the form is immediately ready for "log the next set" without
+// scrolling back up to the plan card.
+function prepareNextSet() {
+  editingId = null;
+  submitBtn.textContent = "Log set";
+  notesInput.value = "";
+  dropSetInput.checked = false;
+  updateLastEntryHint();
+  weightInput.focus();
+}
+
 // --- Firestore-backed entry storage ---
 // Entries live at users/{uid}/entries/{entryId}. A real-time listener keeps
 // the in-memory `entries` array (and the whole UI) in sync across devices.
@@ -844,10 +857,11 @@ logForm.addEventListener("submit", async (ev) => {
   try {
     if (editingId) {
       await updateEntry(editingId, data);
+      resetForm();
     } else {
       await addEntry(data);
+      prepareNextSet();
     }
-    resetForm();
   } catch (err) {
     alert("Could not save entry: " + err.message);
   } finally {
