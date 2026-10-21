@@ -300,6 +300,18 @@ function renderProgressSelect() {
   }
 }
 
+// Keeps Exercise Progress in sync with whatever exercise is in the log
+// form, so switching exercises there shows that exercise's history
+// immediately without a separate pick from the Progress dropdown.
+function syncProgressToExercise(name) {
+  if (!name) return;
+  const exact = uniqueExerciseNames().find((n) => n.toLowerCase() === name.trim().toLowerCase());
+  if (exact && progressSelect.value !== exact) {
+    progressSelect.value = exact;
+    renderProgress();
+  }
+}
+
 function renderProgress() {
   const name = progressSelect.value;
   if (!name) {
@@ -811,6 +823,7 @@ function quickFillFromPlan(planEx, todaysSets) {
   if (last) unitInput.value = last.unit;
 
   updateLastEntryHint();
+  syncProgressToExercise(planEx.name);
   document.getElementById("logSection").scrollIntoView({ behavior: "smooth" });
   weightInput.focus();
 }
@@ -828,6 +841,7 @@ function startEdit(id) {
   dropSetInput.checked = !!entry.dropSet;
   submitBtn.textContent = "Save changes";
   exerciseInput.focus();
+  syncProgressToExercise(entry.exercise);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -935,7 +949,10 @@ logForm.addEventListener("submit", async (ev) => {
   }
 });
 
-exerciseInput.addEventListener("input", updateLastEntryHint);
+exerciseInput.addEventListener("input", () => {
+  updateLastEntryHint();
+  syncProgressToExercise(exerciseInput.value);
+});
 
 filterInput.addEventListener("input", () => {
   filterText = filterInput.value.trim();
