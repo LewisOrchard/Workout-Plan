@@ -497,6 +497,66 @@ input:focus, select:focus {
   font-size: 0.72rem;
 }
 
+.progress-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+}
+
+.progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.progress-table th,
+.progress-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.progress-table th {
+  background: var(--surface-alt);
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.progress-table td {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.progress-table tr:last-child td {
+  border-bottom: none;
+}
+
+.progress-table tr:hover td {
+  background: var(--surface-alt);
+}
+
+.progress-table td.progress-table-date {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+
+.progress-table td.cell-empty {
+  color: var(--text-faint);
+}
+
+.progress-table td.cell-dropset {
+  color: var(--gold-bright);
+}
+
+.progress-table td.cell-best {
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
 .day-tabs {
   display: flex;
   gap: 6px;
