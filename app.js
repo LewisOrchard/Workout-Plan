@@ -129,6 +129,7 @@ const progressLastSub = document.getElementById("progressLastSub");
 const progressChartWrap = document.getElementById("progressChartWrap");
 const progressChart = document.getElementById("progressChart");
 const progressTooltip = document.getElementById("progressTooltip");
+const progressTable = document.getElementById("progressTable");
 const progressViewHistoryBtn = document.getElementById("progressViewHistoryBtn");
 
 function formatDateLabel(iso) {
@@ -265,6 +266,20 @@ function dailyBestSeriesFor(exerciseName) {
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// One row per session (date), one column per set -- same shape as a typical
+// workout spreadsheet, so weight across sessions is easy to compare at a glance.
+function sessionsGroupedByDateFor(exerciseName) {
+  const matches = entries.filter((e) => e.exercise.toLowerCase() === exerciseName.toLowerCase());
+  const byDate = new Map();
+  matches.forEach((e) => {
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date).push(e);
+  });
+  return [...byDate.entries()]
+    .map(([date, sets]) => ({ date, sets: sets.slice().sort((a, b) => a.createdAt - b.createdAt) }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 function renderProgressSelect() {
   const current = progressSelect.value;
   progressSelect.innerHTML = "";
@@ -314,6 +329,57 @@ function renderProgress() {
   progressLastSub.textContent = `${last.reps} reps · ${formatDateLabel(last.date)}`;
 
   drawProgressChart(series);
+  renderProgressTable(sessionsGroupedByDateFor(name), best.id);
+}
+
+function renderProgressTable(sessions, bestEntryId) {
+  const maxSets = sessions.reduce((max, s) => Math.max(max, s.sets.length), 0);
+
+  progressTable.innerHTML = "";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const dateHeader = document.createElement("th");
+  dateHeader.textContent = "Date";
+  headRow.appendChild(dateHeader);
+  for (let i = 0; i < maxSets; i++) {
+    const th = document.createElement("th");
+    th.textContent = `Set ${i + 1}`;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  progressTable.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  sessions.forEach((session) => {
+    const row = document.createElement("tr");
+
+    const dateCell = document.createElement("td");
+    dateCell.className = "progress-table-date";
+    dateCell.textContent = formatDateLabel(session.date);
+    row.appendChild(dateCell);
+
+    for (let i = 0; i < maxSets; i++) {
+      const cell = document.createElement("td");
+      const set = session.sets[i];
+      if (!set) {
+        cell.className = "cell-empty";
+        cell.textContent = "–";
+      } else {
+        const weightStr = set.weight ? `${set.weight}${set.unit}` : "bw";
+        cell.textContent = `${weightStr}×${set.reps}${set.dropSet ? " DS" : ""}`;
+        if (set.id === bestEntryId) {
+          cell.classList.add("cell-best");
+        } else if (set.dropSet) {
+          cell.classList.add("cell-dropset");
+        }
+      }
+      row.appendChild(cell);
+    }
+
+    tbody.appendChild(row);
+  });
+  progressTable.appendChild(tbody);
 }
 
 function drawProgressChart(series) {
