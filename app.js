@@ -99,6 +99,8 @@ const signOutBtn = document.getElementById("signOutBtn");
 
 const logForm = document.getElementById("logForm");
 const exerciseInput = document.getElementById("exerciseInput");
+const gymInput = document.getElementById("gymInput");
+const gymList = document.getElementById("gymList");
 const repsInput = document.getElementById("repsInput");
 const weightInput = document.getElementById("weightInput");
 const unitInput = document.getElementById("unitInput");
@@ -130,6 +132,9 @@ const progressChartWrap = document.getElementById("progressChartWrap");
 const progressChart = document.getElementById("progressChart");
 const progressTooltip = document.getElementById("progressTooltip");
 const progressTable = document.getElementById("progressTable");
+const progressGymSelect = document.getElementById("progressGymSelect");
+const progressDataWrap = document.getElementById("progressDataWrap");
+const progressGymEmpty = document.getElementById("progressGymEmpty");
 const progressViewHistoryBtn = document.getElementById("progressViewHistoryBtn");
 
 function formatDateLabel(iso) {
@@ -245,6 +250,41 @@ function renderExerciseDatalist() {
   });
 }
 
+function uniqueGymNames() {
+  const names = new Set();
+  entries.forEach((e) => {
+    if (e.gym) names.add(e.gym);
+  });
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+function renderGymDatalist() {
+  gymList.innerHTML = "";
+  uniqueGymNames().forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    gymList.appendChild(opt);
+  });
+}
+
+const LAST_GYM_KEY = "workout-log-last-gym";
+
+function loadLastGym() {
+  try {
+    return localStorage.getItem(LAST_GYM_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastGym(gym) {
+  try {
+    if (gym) localStorage.setItem(LAST_GYM_KEY, gym);
+  } catch {
+    // ignore (e.g. private browsing with storage disabled)
+  }
+}
+
 // --- Exercise progress chart ---
 // Session-indexed (one point per day you logged the exercise, evenly
 // spaced) rather than true calendar time, so rest days/gaps between
@@ -254,8 +294,10 @@ function formatWeightValue(weight, unit) {
   return weight ? `${weight}${unit}` : "bodyweight";
 }
 
-function dailyBestSeriesFor(exerciseName) {
-  const matches = entries.filter((e) => e.exercise.toLowerCase() === exerciseName.toLowerCase());
+function dailyBestSeriesFor(exerciseName, gymFilter) {
+  const matches = entries.filter(
+    (e) => e.exercise.toLowerCase() === exerciseName.toLowerCase() && (!gymFilter || e.gym === gymFilter)
+  );
   const byDate = new Map();
   matches.forEach((e) => {
     const existing = byDate.get(e.date);
@@ -268,8 +310,10 @@ function dailyBestSeriesFor(exerciseName) {
 
 // One row per session (date), one column per set -- same shape as a typical
 // workout spreadsheet, so weight across sessions is easy to compare at a glance.
-function sessionsGroupedByDateFor(exerciseName) {
-  const matches = entries.filter((e) => e.exercise.toLowerCase() === exerciseName.toLowerCase());
+function sessionsGroupedByDateFor(exerciseName, gymFilter) {
+  const matches = entries.filter(
+    (e) => e.exercise.toLowerCase() === exerciseName.toLowerCase() && (!gymFilter || e.gym === gymFilter)
+  );
   const byDate = new Map();
   matches.forEach((e) => {
     if (!byDate.has(e.date)) byDate.set(e.date, []);
@@ -312,6 +356,70 @@ function syncProgressToExercise(name) {
   }
 }
 
+// Machine/cable exercises aren't comparable between gyms (different
+// equipment, pulley ratios, etc.); free weights are. Looked up from the
+// plan's `machine` flag -- custom exercises outside the plan default to
+// comparable-everywhere ("All gyms"), same as free weights.
+function isMachineExercise(name) {
+  const lower = name.toLowerCase();
+  for (const day of planDays) {
+    const match = WORKOUT_PLAN[day].find((ex) => ex.name.toLowerCase() === lower);
+    if (match) return !!match.machine;
+  }
+  return false;
+}
+
+function gymsUsedForExercise(name) {
+  const gyms = new Set();
+  entries.forEach((e) => {
+    if (e.exercise.toLowerCase() === name.toLowerCase() && e.gym) gyms.add(e.gym);
+  });
+  return [...gyms].sort((a, b) => a.localeCompare(b));
+}
+
+function mostRecentGymForExercise(name) {
+  const matches = entries
+    .filter((e) => e.exercise.toLowerCase() === name.toLowerCase() && e.gym)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  return matches.length ? matches[0].gym : "";
+}
+
+let lastGymFilterExercise = null;
+
+// Rebuilds the gym filter's options for the selected exercise. Only resets
+// the selected value when the exercise itself changed (not on every data
+// refresh), and only then applies the smart default: machine exercises
+// default to the current/most-recent gym, everything else to "All gyms".
+function renderProgressGymFilter(name) {
+  const exerciseChanged = name !== lastGymFilterExercise;
+  const previousValue = progressGymSelect.value;
+  const gyms = gymsUsedForExercise(name);
+
+  progressGymSelect.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "";
+  allOpt.textContent = "All gyms";
+  progressGymSelect.appendChild(allOpt);
+  gyms.forEach((gym) => {
+    const opt = document.createElement("option");
+    opt.value = gym;
+    opt.textContent = gym;
+    progressGymSelect.appendChild(opt);
+  });
+
+  if (exerciseChanged) {
+    let defaultGym = "";
+    if (isMachineExercise(name)) {
+      const currentGym = gymInput.value.trim();
+      defaultGym = currentGym && gyms.includes(currentGym) ? currentGym : mostRecentGymForExercise(name);
+    }
+    progressGymSelect.value = gyms.includes(defaultGym) ? defaultGym : "";
+    lastGymFilterExercise = name;
+  } else {
+    progressGymSelect.value = gyms.includes(previousValue) ? previousValue : "";
+  }
+}
+
 function renderProgress() {
   const name = progressSelect.value;
   if (!name) {
@@ -321,8 +429,8 @@ function renderProgress() {
     return;
   }
 
-  const series = dailyBestSeriesFor(name);
-  if (series.length === 0) {
+  const allSeries = dailyBestSeriesFor(name, "");
+  if (allSeries.length === 0) {
     progressContent.hidden = true;
     progressEmpty.hidden = false;
     progressEmpty.textContent = "No sets logged yet for this exercise.";
@@ -331,6 +439,20 @@ function renderProgress() {
 
   progressEmpty.hidden = true;
   progressContent.hidden = false;
+
+  renderProgressGymFilter(name);
+  const gymFilter = progressGymSelect.value;
+  const series = dailyBestSeriesFor(name, gymFilter);
+
+  if (series.length === 0) {
+    progressDataWrap.hidden = true;
+    progressGymEmpty.hidden = false;
+    progressGymEmpty.textContent = `No sets logged for this exercise at ${gymFilter}.`;
+    return;
+  }
+
+  progressDataWrap.hidden = false;
+  progressGymEmpty.hidden = true;
 
   const best = series.reduce((max, s) => (s.weight > max.weight ? s : max), series[0]);
   progressBestValue.textContent = formatWeightValue(best.weight, best.unit);
@@ -341,10 +463,10 @@ function renderProgress() {
   progressLastSub.textContent = `${last.reps} reps · ${formatDateLabel(last.date)}`;
 
   drawProgressChart(series);
-  renderProgressTable(sessionsGroupedByDateFor(name), best.id);
+  renderProgressTable(sessionsGroupedByDateFor(name, gymFilter), best.id, !gymFilter);
 }
 
-function renderProgressTable(sessions, bestEntryId) {
+function renderProgressTable(sessions, bestEntryId, showGym) {
   const maxSets = sessions.reduce((max, s) => Math.max(max, s.sets.length), 0);
 
   progressTable.innerHTML = "";
@@ -354,6 +476,11 @@ function renderProgressTable(sessions, bestEntryId) {
   const dateHeader = document.createElement("th");
   dateHeader.textContent = "Date";
   headRow.appendChild(dateHeader);
+  if (showGym) {
+    const gymHeader = document.createElement("th");
+    gymHeader.textContent = "Gym";
+    headRow.appendChild(gymHeader);
+  }
   for (let i = 0; i < maxSets; i++) {
     const th = document.createElement("th");
     th.textContent = `Set ${i + 1}`;
@@ -370,6 +497,14 @@ function renderProgressTable(sessions, bestEntryId) {
     dateCell.className = "progress-table-date";
     dateCell.textContent = formatDateLabel(session.date);
     row.appendChild(dateCell);
+
+    if (showGym) {
+      const gymCell = document.createElement("td");
+      const gym = session.sets.find((s) => s.gym)?.gym;
+      gymCell.className = gym ? "" : "cell-empty";
+      gymCell.textContent = gym || "–";
+      row.appendChild(gymCell);
+    }
 
     for (let i = 0; i < maxSets; i++) {
       const cell = document.createElement("td");
@@ -565,6 +700,7 @@ window.addEventListener("resize", () => {
 });
 
 progressSelect.addEventListener("change", renderProgress);
+progressGymSelect.addEventListener("change", renderProgress);
 
 progressViewHistoryBtn.addEventListener("click", () => {
   filterInput.value = progressSelect.value;
@@ -658,7 +794,9 @@ function renderExerciseGroup(exerciseName, setEntries) {
 
   const header = document.createElement("div");
   header.className = "exercise-group-header";
-  header.textContent = `${exerciseName} — ${setEntries.length} set${setEntries.length === 1 ? "" : "s"}`;
+  const gyms = new Set(setEntries.map((e) => e.gym).filter(Boolean));
+  const gymSuffix = gyms.size === 1 ? ` (${[...gyms][0]})` : "";
+  header.textContent = `${exerciseName} — ${setEntries.length} set${setEntries.length === 1 ? "" : "s"}${gymSuffix}`;
   wrap.appendChild(header);
 
   setEntries.forEach((entry, i) => {
@@ -833,6 +971,7 @@ function startEdit(id) {
   if (!entry) return;
   editingId = id;
   exerciseInput.value = entry.exercise;
+  gymInput.value = entry.gym || "";
   repsInput.value = entry.reps;
   weightInput.value = entry.weight || "";
   unitInput.value = entry.unit;
@@ -850,6 +989,7 @@ function resetForm() {
   logForm.reset();
   dateInput.value = todayISO();
   repsInput.value = 10;
+  gymInput.value = loadLastGym();
   submitBtn.textContent = "Log set";
   lastEntryHint.textContent = "";
 }
@@ -889,6 +1029,7 @@ function subscribeToEntries() {
         }
       }
       renderExerciseDatalist();
+      renderGymDatalist();
       renderHistory();
       renderPlanList();
       renderProgressSelect();
@@ -925,6 +1066,7 @@ logForm.addEventListener("submit", async (ev) => {
 
   const data = {
     exercise,
+    gym: gymInput.value.trim(),
     reps: Number(repsInput.value),
     weight: weightInput.value ? Number(weightInput.value) : 0,
     unit: unitInput.value,
@@ -940,6 +1082,7 @@ logForm.addEventListener("submit", async (ev) => {
       resetForm();
     } else {
       await addEntry(data);
+      saveLastGym(data.gym);
       prepareNextSet();
     }
   } catch (err) {
@@ -985,6 +1128,7 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
         const ref = collection.doc();
         batch.set(ref, {
           exercise: item.exercise,
+          gym: item.gym || "",
           reps: Number(item.reps) || 1,
           weight: Number(item.weight) || 0,
           unit: item.unit === "lb" ? "lb" : "kg",
@@ -1051,6 +1195,7 @@ signOutBtn.addEventListener("click", () => {
 });
 
 dateInput.value = todayISO();
+gymInput.value = loadLastGym();
 renderDayTabs();
 renderPlanList();
 

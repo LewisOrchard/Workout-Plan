@@ -382,6 +382,16 @@ input:focus, select:focus {
   gap: 16px;
 }
 
+.progress-gym-filter {
+  margin: 0;
+}
+
+#progressDataWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .progress-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
