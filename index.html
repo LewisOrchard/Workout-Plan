@@ -108,6 +108,12 @@
           <span id="lastEntryHint" class="hint"></span>
         </div>
 
+        <div class="field">
+          <label for="gymInput">Gym (optional)</label>
+          <input list="gymList" id="gymInput" name="gym" placeholder="e.g. Liontown" autocomplete="off" />
+          <datalist id="gymList"></datalist>
+        </div>
+
         <div class="field-row">
           <div class="field">
             <label for="repsInput">Reps</label>
@@ -155,27 +161,36 @@
       </div>
 
       <div id="progressContent" hidden>
-        <div class="progress-stats">
-          <div class="progress-stat">
-            <div class="progress-stat-label">Personal best</div>
-            <div class="progress-stat-value" id="progressBestValue">—</div>
-            <div class="progress-stat-sub" id="progressBestSub"></div>
+        <div class="field progress-gym-filter">
+          <label for="progressGymSelect">Compare</label>
+          <select id="progressGymSelect"></select>
+        </div>
+
+        <div id="progressDataWrap">
+          <div class="progress-stats">
+            <div class="progress-stat">
+              <div class="progress-stat-label">Personal best</div>
+              <div class="progress-stat-value" id="progressBestValue">—</div>
+              <div class="progress-stat-sub" id="progressBestSub"></div>
+            </div>
+            <div class="progress-stat">
+              <div class="progress-stat-label">Last session</div>
+              <div class="progress-stat-value" id="progressLastValue">—</div>
+              <div class="progress-stat-sub" id="progressLastSub"></div>
+            </div>
           </div>
-          <div class="progress-stat">
-            <div class="progress-stat-label">Last session</div>
-            <div class="progress-stat-value" id="progressLastValue">—</div>
-            <div class="progress-stat-sub" id="progressLastSub"></div>
+
+          <div class="progress-chart-wrap" id="progressChartWrap">
+            <svg id="progressChart" class="progress-chart"></svg>
+            <div id="progressTooltip" class="progress-tooltip" hidden></div>
+          </div>
+
+          <div class="progress-table-wrap">
+            <table id="progressTable" class="progress-table"></table>
           </div>
         </div>
 
-        <div class="progress-chart-wrap" id="progressChartWrap">
-          <svg id="progressChart" class="progress-chart"></svg>
-          <div id="progressTooltip" class="progress-tooltip" hidden></div>
-        </div>
-
-        <div class="progress-table-wrap">
-          <table id="progressTable" class="progress-table"></table>
-        </div>
+        <p id="progressGymEmpty" class="empty-state" hidden></p>
 
         <button type="button" id="progressViewHistoryBtn" class="link-btn">View all sets in History ↓</button>
       </div>

@@ -24,12 +24,17 @@ home — no build step, just a static site backed by a free Firebase project.
 - History grouped by day, then by exercise, with each individual set listed
   and numbered
 - Edit or delete any individual set
+- An optional **Gym** field when logging a set, remembered between sets so
+  you only type it once per session
 - **Exercise Progress**: pick an exercise to see a personal best, your last
   session, a chart of your best set per session over time, and a session ×
   set comparison table (one row per session, one column per set, just like a
   typical workout spreadsheet) — a much faster way to check "how much was I
   lifting on this a month ago" than scrolling through History once it gets
-  long
+  long. A "Compare" filter lets you scope all of this to one gym — machine
+  and cable exercises default to comparing within your current gym only
+  (different equipment isn't comparable between gyms), while free weights
+  default to comparing across every gym. Always overridable by hand.
 - Signed-in accounts, synced in real time across every device via Firestore
 - Export your log to a JSON file for backup, and import it back later
 
