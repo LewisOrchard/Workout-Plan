@@ -21,9 +21,13 @@ home — no build step, just a static site backed by a free Firebase project.
   with a "Drop set" badge in Today's Plan and History when checked
 - Shows your progress today per exercise (e.g. "Set 1: 19.5kg × 17, Set 2:
   21.25kg × 15...") and your last logged set as you type an exercise name
-- History grouped by day, then by exercise, with each individual set listed
-  and numbered
-- Edit or delete any individual set
+- **History** at a glance: one row per workout day showing the workout type,
+  gym, and how many exercises went up ▲, down ▼ or stayed the same = versus
+  the previous session. Tap a day to open a table with one row per exercise,
+  a "vs last" column (your previous best set and its date), and one column
+  per set. Machine exercises are compared within the same gym only. The
+  10 most recent days show first; "Show more days" loads older ones.
+- Tap any set in the History table to edit it, or delete it from the edit form
 - An optional **Gym** field when logging a set, remembered between sets so
   you only type it once per session
 - **Exercise Progress**: pick an exercise to see a personal best, your last
@@ -36,7 +40,8 @@ home — no build step, just a static site backed by a free Firebase project.
   (different equipment isn't comparable between gyms), while free weights
   default to comparing across every gym. Always overridable by hand.
 - Signed-in accounts, synced in real time across every device via Firestore
-- Export your log to a JSON file for backup, and import it back later
+- A **Backup** card at the bottom: export your log to a JSON file, import it
+  back later, or remove everything that came from a particular import file
 
 ## Setup (one-time)
 
