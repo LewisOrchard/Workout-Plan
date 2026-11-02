@@ -111,6 +111,8 @@ const exerciseList = document.getElementById("exerciseList");
 const lastEntryHint = document.getElementById("lastEntryHint");
 const historyList = document.getElementById("historyList");
 const emptyState = document.getElementById("emptyState");
+const historyMoreBtn = document.getElementById("historyMoreBtn");
+const editActions = document.getElementById("editActions");
 const filterInput = document.getElementById("filterInput");
 const submitBtn = logForm.querySelector(".primary-btn");
 const dayTabs = document.getElementById("dayTabs");
@@ -736,31 +738,101 @@ function groupByDate(list) {
   return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
 }
 
-function groupByExercise(dayEntries) {
-  const groups = new Map();
+// --- History: one row per workout day, opening into a set-by-set table ---
+
+const HISTORY_PAGE = 10;
+let historyShown = HISTORY_PAGE;
+const historyOpened = new Set();
+const historyClosed = new Set();
+
+function historyDayTypes(dayEntries) {
+  const votes = new Set();
   dayEntries.forEach((e) => {
-    if (!groups.has(e.exercise)) groups.set(e.exercise, []);
-    groups.get(e.exercise).push(e);
+    const days = EXERCISE_DAY_INDEX.get(e.exercise.toLowerCase());
+    if (days && days.size === 1) votes.add([...days][0]);
   });
-  return [...groups.entries()]
-    .map(([name, list]) => [name, list.slice().sort((a, b) => a.createdAt - b.createdAt)])
-    .sort((a, b) => {
-      const aLast = a[1][a[1].length - 1].createdAt;
-      const bLast = b[1][b[1].length - 1].createdAt;
-      return bLast - aLast;
-    });
+  return planDays.filter((d) => votes.has(d));
+}
+
+function topSet(sets) {
+  return sets.reduce(
+    (best, s) => (s.weight > best.weight || (s.weight === best.weight && s.reps > best.reps) ? s : best),
+    sets[0]
+  );
+}
+
+// Each exercise's sessions (one per date), oldest first, for comparing a
+// session with the one before it.
+function buildSessionIndex() {
+  const byExercise = new Map();
+  entries.forEach((e) => {
+    const key = e.exercise.toLowerCase();
+    if (!byExercise.has(key)) byExercise.set(key, new Map());
+    const dates = byExercise.get(key);
+    if (!dates.has(e.date)) dates.set(e.date, []);
+    dates.get(e.date).push(e);
+  });
+  const index = new Map();
+  byExercise.forEach((dates, key) => {
+    index.set(
+      key,
+      [...dates.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, sets]) => ({ date, top: topSet(sets), gym: sets.find((s) => s.gym)?.gym || "" }))
+    );
+  });
+  return index;
+}
+
+// Machine exercises only compare against the same gym (weight stacks differ
+// between gyms); free weights compare against any gym.
+function previousSession(index, exercise, date, gym) {
+  const sessions = index.get(exercise.toLowerCase()) || [];
+  const machine = isMachineExercise(exercise);
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const s = sessions[i];
+    if (s.date >= date) continue;
+    if (machine && gym && s.gym && s.gym !== gym) continue;
+    return s;
+  }
+  return null;
+}
+
+function compareSets(top, prev) {
+  if (!prev) return "new";
+  if (top.weight !== prev.weight) return top.weight > prev.weight ? "up" : "down";
+  if (top.reps !== prev.reps) return top.reps > prev.reps ? "up" : "down";
+  return "same";
+}
+
+function formatShortDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const opts = { day: "numeric", month: "short" };
+  if (y !== new Date().getFullYear()) opts.year = "2-digit";
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+}
+
+function formatSet(set) {
+  return `${set.weight ? `${set.weight}${set.unit}` : "BW"}×${set.reps}`;
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
 }
 
 function renderHistory() {
-  const filtered = filterText
-    ? entries.filter((e) => e.exercise.toLowerCase().includes(filterText.toLowerCase()))
-    : entries;
+  const q = filterText.toLowerCase();
+  const filtered = q ? entries.filter((e) => e.exercise.toLowerCase().includes(q)) : entries;
 
   historyList.innerHTML = "";
   emptyState.hidden = entries.length !== 0;
 
   if (filtered.length === 0) {
     historyList.hidden = true;
+    historyMoreBtn.hidden = true;
     if (entries.length > 0) {
       emptyState.hidden = false;
       emptyState.textContent = "No entries match your filter.";
@@ -769,93 +841,114 @@ function renderHistory() {
   }
 
   historyList.hidden = false;
-  const groups = groupByDate(filtered);
+  const days = groupByDate(filtered);
+  const index = buildSessionIndex();
+  days.slice(0, historyShown).forEach(([date, dayEntries], i) => {
+    historyList.appendChild(renderHistoryDay(date, dayEntries, index, i === 0));
+  });
+  historyMoreBtn.hidden = days.length <= historyShown;
+}
 
-  groups.forEach(([date, dayEntries]) => {
-    const group = document.createElement("div");
-    group.className = "day-group";
-
-    const label = document.createElement("div");
-    label.className = "day-label";
-    label.textContent = formatDateLabel(date);
-    group.appendChild(label);
-
-    groupByExercise(dayEntries).forEach(([exerciseName, setEntries]) => {
-      group.appendChild(renderExerciseGroup(exerciseName, setEntries));
+function renderHistoryDay(date, dayEntries, index, isNewest) {
+  const byExercise = new Map();
+  dayEntries
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .forEach((e) => {
+      if (!byExercise.has(e.exercise)) byExercise.set(e.exercise, []);
+      byExercise.get(e.exercise).push(e);
     });
 
-    historyList.appendChild(group);
-  });
-}
-
-function renderExerciseGroup(exerciseName, setEntries) {
-  const wrap = document.createElement("div");
-  wrap.className = "exercise-group";
-
-  const header = document.createElement("div");
-  header.className = "exercise-group-header";
-  const gyms = new Set(setEntries.map((e) => e.gym).filter(Boolean));
-  const gymSuffix = gyms.size === 1 ? ` (${[...gyms][0]})` : "";
-  header.textContent = `${exerciseName} — ${setEntries.length} set${setEntries.length === 1 ? "" : "s"}${gymSuffix}`;
-  wrap.appendChild(header);
-
-  setEntries.forEach((entry, i) => {
-    wrap.appendChild(renderSetRow(entry, i + 1));
+  const rows = [...byExercise.entries()].map(([name, sets]) => {
+    const gym = sets.find((s) => s.gym)?.gym || "";
+    const top = topSet(sets);
+    const prev = previousSession(index, name, date, gym);
+    return { name, sets, prev, cmp: compareSets(top, prev && prev.top) };
   });
 
-  return wrap;
-}
+  const details = el("details", "history-day");
+  details.open = historyOpened.has(date) || (isNewest && !historyClosed.has(date));
+  const summary = el("summary");
+  // Remember only the user's own taps ("toggle" also fires when the page
+  // sets `open` while rendering, which would pin every default-open day).
+  summary.addEventListener("click", () => {
+    if (details.open) {
+      historyClosed.add(date);
+      historyOpened.delete(date);
+    } else {
+      historyOpened.add(date);
+      historyClosed.delete(date);
+    }
+  });
+  summary.appendChild(el("span", "history-date", formatDateLabel(date)));
 
-function renderSetRow(entry, setNumber) {
-  const el = document.createElement("div");
-  el.className = "entry";
+  const tally = el("span", "history-tally");
+  [["up", "▲"], ["down", "▼"], ["same", "="]].forEach(([kind, symbol]) => {
+    const n = rows.filter((r) => r.cmp === kind).length;
+    if (n) tally.appendChild(el("span", kind, `${symbol}${n}`));
+  });
+  tally.appendChild(el("span", "history-chev", "›"));
+  summary.appendChild(tally);
 
-  const main = document.createElement("div");
-  main.className = "entry-main";
+  const meta = el("span", "history-meta");
+  const types = historyDayTypes(dayEntries);
+  meta.appendChild(el("span", "history-types", types.length ? types.join(" + ") : "Workout"));
+  const gyms = [...new Set(dayEntries.map((e) => e.gym).filter(Boolean))];
+  meta.appendChild(
+    document.createTextNode(` · ${gyms.join(", ") || "No gym"} · ${rows.length} exercise${rows.length === 1 ? "" : "s"}`)
+  );
+  summary.appendChild(meta);
+  details.appendChild(summary);
 
-  const detail = document.createElement("div");
-  detail.className = "entry-detail";
-  const weightStr = entry.weight ? `${entry.weight}${entry.unit}` : "bodyweight";
-  const setLabel = document.createElement("span");
-  setLabel.className = "set-label";
-  setLabel.textContent = `Set ${setNumber}`;
-  detail.appendChild(setLabel);
-  detail.appendChild(document.createTextNode(`${entry.reps} reps @ ${weightStr}`));
-  if (entry.dropSet) {
-    const badge = document.createElement("span");
-    badge.className = "drop-set-badge";
-    badge.textContent = "Drop set";
-    detail.appendChild(badge);
-  }
-  main.appendChild(detail);
+  const maxSets = Math.max(...rows.map((r) => r.sets.length));
+  const table = el("table", "history-table");
+  const head = el("tr");
+  head.appendChild(el("th", "ex", "Exercise"));
+  head.appendChild(el("th", null, "vs last"));
+  for (let i = 1; i <= maxSets; i++) head.appendChild(el("th", null, `Set ${i}`));
+  const thead = el("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
 
-  if (entry.notes) {
-    const notes = document.createElement("div");
-    notes.className = "entry-notes";
-    notes.textContent = entry.notes;
-    main.appendChild(notes);
-  }
+  const tbody = el("tbody");
+  rows.forEach((row) => {
+    const tr = el("tr");
+    const exCell = el("td", "ex", row.name);
+    const notes = [...new Set(row.sets.map((s) => s.notes).filter(Boolean))];
+    if (notes.length) exCell.appendChild(el("span", "history-ex-notes", notes.join(" · ")));
+    tr.appendChild(exCell);
 
-  el.appendChild(main);
+    const cmpCell = el("td", "cmp-cell");
+    cmpCell.appendChild(el("span", `cmp ${row.cmp}`, { up: "▲", down: "▼", same: "=", new: "NEW" }[row.cmp]));
+    if (row.prev) {
+      cmpCell.appendChild(el("span", "cmp-prev", formatSet(row.prev.top)));
+      cmpCell.appendChild(el("span", "cmp-prev", formatShortDate(row.prev.date)));
+    }
+    tr.appendChild(cmpCell);
 
-  const actions = document.createElement("div");
-  actions.className = "entry-actions";
+    for (let i = 0; i < maxSets; i++) {
+      const set = row.sets[i];
+      if (!set) {
+        tr.appendChild(el("td", "empty", "–"));
+        continue;
+      }
+      const td = el("td");
+      const btn = el("button", "set-cell", formatSet(set));
+      btn.type = "button";
+      btn.title = "Edit this set";
+      if (set.dropSet) btn.appendChild(el("span", "ds", "DS"));
+      btn.addEventListener("click", () => startEdit(set.id));
+      td.appendChild(btn);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
 
-  const editBtn = document.createElement("button");
-  editBtn.textContent = "Edit";
-  editBtn.type = "button";
-  editBtn.addEventListener("click", () => startEdit(entry.id));
-  actions.appendChild(editBtn);
-
-  const delBtn = document.createElement("button");
-  delBtn.textContent = "Delete";
-  delBtn.type = "button";
-  delBtn.className = "delete-btn";
-  delBtn.addEventListener("click", () => deleteEntry(entry.id));
-  actions.appendChild(delBtn);
-
-  el.appendChild(actions);
-  return el;
+  const wrap = el("div", "history-table-wrap");
+  wrap.appendChild(table);
+  details.appendChild(wrap);
+  return details;
 }
 
 function parseRepsLow(repsStr) {
@@ -979,9 +1072,10 @@ function startEdit(id) {
   notesInput.value = entry.notes || "";
   dropSetInput.checked = !!entry.dropSet;
   submitBtn.textContent = "Save changes";
-  exerciseInput.focus();
+  editActions.hidden = false;
   syncProgressToExercise(entry.exercise);
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  document.getElementById("logSection").scrollIntoView({ behavior: "smooth" });
+  exerciseInput.focus({ preventScroll: true });
 }
 
 function resetForm() {
@@ -991,6 +1085,7 @@ function resetForm() {
   repsInput.value = 10;
   gymInput.value = loadLastGym();
   submitBtn.textContent = "Log set";
+  editActions.hidden = true;
   lastEntryHint.textContent = "";
 }
 
@@ -1001,6 +1096,7 @@ function resetForm() {
 function prepareNextSet() {
   editingId = null;
   submitBtn.textContent = "Log set";
+  editActions.hidden = true;
   notesInput.value = "";
   dropSetInput.checked = false;
   updateLastEntryHint();
@@ -1097,7 +1193,18 @@ exerciseInput.addEventListener("input", () => {
   syncProgressToExercise(exerciseInput.value);
 });
 
+document.getElementById("deleteEditBtn").addEventListener("click", () => {
+  if (editingId) deleteEntry(editingId);
+});
+document.getElementById("cancelEditBtn").addEventListener("click", resetForm);
+
+historyMoreBtn.addEventListener("click", () => {
+  historyShown += HISTORY_PAGE;
+  renderHistory();
+});
+
 filterInput.addEventListener("input", () => {
+  historyShown = HISTORY_PAGE;
   filterText = filterInput.value.trim();
   renderHistory();
 });
