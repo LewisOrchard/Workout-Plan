@@ -1120,27 +1120,33 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
     const imported = JSON.parse(text);
     if (!Array.isArray(imported)) throw new Error("Invalid format");
 
-    const batch = firebase.firestore().batch();
+    const items = imported.filter((item) => item && item.exercise && item.date);
     const collection = entriesCollection();
+    // Firestore rejects batches over 500 writes, so commit in chunks.
+    const CHUNK = 400;
     let added = 0;
-    imported.forEach((item) => {
-      if (item && item.exercise && item.date) {
-        const ref = collection.doc();
-        batch.set(ref, {
-          exercise: item.exercise,
-          gym: item.gym || "",
-          reps: Number(item.reps) || 1,
-          weight: Number(item.weight) || 0,
-          unit: item.unit === "lb" ? "lb" : "kg",
-          date: item.date,
-          notes: item.notes || "",
-          dropSet: !!item.dropSet,
-          createdAt: item.createdAt || Date.now(),
+    try {
+      for (let i = 0; i < items.length; i += CHUNK) {
+        const batch = firebase.firestore().batch();
+        items.slice(i, i + CHUNK).forEach((item) => {
+          batch.set(collection.doc(), {
+            exercise: item.exercise,
+            gym: item.gym || "",
+            reps: Number(item.reps) || 1,
+            weight: Number(item.weight) || 0,
+            unit: item.unit === "lb" ? "lb" : "kg",
+            date: item.date,
+            notes: item.notes || "",
+            dropSet: !!item.dropSet,
+            createdAt: item.createdAt || Date.now(),
+          });
         });
-        added++;
+        await batch.commit();
+        added += Math.min(CHUNK, items.length - i);
       }
-    });
-    await batch.commit();
+    } catch (err) {
+      throw new Error(`${err.message} (${added} of ${items.length} entries were saved before this failed)`);
+    }
     alert(`Imported ${added} entr${added === 1 ? "y" : "ies"}.`);
   } catch (err) {
     alert("Could not import file: " + err.message);
