@@ -1139,6 +1139,7 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
             notes: item.notes || "",
             dropSet: !!item.dropSet,
             createdAt: item.createdAt || Date.now(),
+            importId: item.importId || "",
           });
         });
         await batch.commit();
@@ -1150,6 +1151,46 @@ document.getElementById("importInput").addEventListener("change", async (ev) => 
     alert(`Imported ${added} entr${added === 1 ? "y" : "ies"}.`);
   } catch (err) {
     alert("Could not import file: " + err.message);
+  } finally {
+    ev.target.value = "";
+  }
+});
+
+// Removes exactly the entries a previous import created, by matching each
+// line of the same file -- so sets logged by hand are never touched.
+function importKey(item) {
+  return [item.importId || "", item.createdAt, item.exercise, item.date, Number(item.weight) || 0, Number(item.reps) || 1].join("|");
+}
+
+document.getElementById("removeImportInput").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  try {
+    const imported = JSON.parse(await file.text());
+    if (!Array.isArray(imported)) throw new Error("Invalid format");
+    const keys = new Set(imported.filter((i) => i && i.exercise && i.date && i.createdAt).map(importKey));
+    const matches = entries.filter((e) => keys.has(importKey(e)));
+    if (matches.length === 0) {
+      alert("No entries from this file were found, so nothing was removed.");
+      return;
+    }
+    if (!confirm(`Remove ${matches.length} entries that came from "${file.name}"? This can't be undone.`)) return;
+    const collection = entriesCollection();
+    const CHUNK = 400;
+    let removed = 0;
+    try {
+      for (let i = 0; i < matches.length; i += CHUNK) {
+        const batch = firebase.firestore().batch();
+        matches.slice(i, i + CHUNK).forEach((e) => batch.delete(collection.doc(e.id)));
+        await batch.commit();
+        removed += Math.min(CHUNK, matches.length - i);
+      }
+    } catch (err) {
+      throw new Error(`${err.message} (${removed} of ${matches.length} entries were removed before this failed)`);
+    }
+    alert(`Removed ${removed} entr${removed === 1 ? "y" : "ies"}.`);
+  } catch (err) {
+    alert("Could not remove import: " + err.message);
   } finally {
     ev.target.value = "";
   }
